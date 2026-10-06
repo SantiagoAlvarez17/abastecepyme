@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "abastecepyme"
+version = "0.1.0"
+description = "Backend Core para AbastecePyme"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "sqlalchemy"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/abastecepyme"]

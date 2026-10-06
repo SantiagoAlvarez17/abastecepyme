@@ -1,0 +1,18 @@
+from abc import ABC, abstractmethod
+from typing import List
+from uuid import UUID
+from abastecepyme.domain.entities.dependency import Dependency
+
+class DependencyRepository(ABC):
+    """
+    Contrato abstracto (Puerto) para la persistencia de Dependencias.
+    Asegura el Principio de Segregación de Interfaces (ISP) y DIP.
+    """
+    
+    @abstractmethod
+    def save(self, dependency: Dependency) -> Dependency:
+        pass
+
+    @abstractmethod
+    def get_dependencies_for_element(self, element_id: UUID) -> List[Dependency]:
+        pass
