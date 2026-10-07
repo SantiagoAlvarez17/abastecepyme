@@ -44,7 +44,7 @@ Los errores siempre responden con `{error_code, message}`:
 
 **Dirección de las aristas: `A → B` significa "Para producir A necesito B".**
 Ejemplo: `Pan → Harina → Molinos SA`. La frase invertida ("Para producir Harina necesito Pan") no tiene sentido, por eso el grafo es dirigido.
-Consecuencia para F2: cuando falla un proveedor, el impacto se calcula recorriendo las aristas en sentido contrario, desde quienes lo necesitan. Esto debe resolverse en el modelo, por ejemplo con una adyacencia inversa, y no con condicionales.
+Consecuencia para F2: cuando falla un proveedor, el impacto se calcula recorriendo las aristas en sentido contrario, desde quienes lo necesitan. El modelo ya lo resuelve con una adyacencia inversa (ver *Representación principal*), sin condicionales.
 
 **Reglas de tipos:**
 - Un proveedor no depende de nada.
@@ -56,8 +56,11 @@ Consecuencia para F2: cuando falla un proveedor, el impacto se calcula recorrien
 - El identificador de negocio es el **nombre**: único, sin distinguir mayúsculas y sin espacios al inicio o al final.
 
 **Representación principal:**
-- La clase propia `DependencyGraph` (`domain/graph/dependency_graph.py`) implementa una **lista de adyacencia**: `dict[id, list[id]]`.
-- Se eligió porque el grafo es disperso (cada elemento depende de pocos otros) y los recorridos de F2 y F3 iteran vecinos. Ocupa O(V + E) en memoria y el acceso a los vecinos de un nodo es O(grado).
+- La clase propia `DependencyGraph` (`domain/graph/dependency_graph.py`) implementa **listas de adyacencia** con dos índices:
+  - `_requires: dict[id, list[id]]`: aristas salientes, lo que cada elemento necesita. Es lo que expone `adjacency` en `GET /graph`.
+  - `_required_by: dict[id, list[id]]`: aristas entrantes, quién necesita a cada elemento. Permite recorrer el grafo al revés (impacto de un proveedor en F2) sin recalcular nada.
+- Consultas disponibles: `requirements_of`, `dependents_of`, `has_path` (búsqueda en profundidad iterativa) y `would_create_cycle` (preparada para F3; F1 no la usa para rechazar).
+- Se eligió porque el grafo es disperso (cada elemento depende de pocos otros) y los recorridos de F2 y F3 iteran vecinos. Ocupa O(V + E) en memoria (cada arista se guarda dos veces, una por índice), el acceso a los vecinos de un nodo es O(grado) y `has_path` es O(V + E).
 - La base SQL solo sirve para persistir. El grafo se reconstruye en memoria en cada consulta.
 
 **Ciclos:**
@@ -82,5 +85,12 @@ Se puede ejecutar varias veces: lo que ya existe no se duplica. No lo use sobre 
    python scripts/aceptacion_f1.py
    ```
 
-El script prueba el escenario normal, el grafo vacío, un nodo inexistente, una relación repetida, una autodependencia, un nombre repetido, datos inválidos, una relación con tipos inválidos y un ciclo. Para cada escenario imprime qué se esperaba, qué se obtuvo y si pasó o falló.
+El script prueba el escenario normal, el grafo vacío, un nodo inexistente, una relación no registrada, una relación repetida, una autodependencia, un nombre repetido, datos inválidos, una relación con tipos inválidos y un ciclo. Para cada escenario imprime qué se esperaba, qué se obtuvo y si pasó o falló.
 Antes de volver a ejecutarlo, borre `aceptacion.db`.
+
+## Pruebas unitarias (opcionales)
+La guía no exige `pytest`; el entregable obligatorio es el script de aceptación. Como apoyo, `tests/` contiene pruebas del grafo y de los casos de uso con repositorios en memoria (sin base de datos):
+```bash
+pip install -r requirements-dev.txt
+python -m pytest tests
+```
