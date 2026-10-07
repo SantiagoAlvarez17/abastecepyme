@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM python:3.12-slim-bookworm
 
 # Instalar dependencias del sistema y el driver ODBC 17 para SQL Server
 RUN apt-get update && apt-get install -y curl apt-transport-https gnupg2 g++ \

@@ -1,44 +1,116 @@
-from typing import Dict, List, Tuple
+from typing import Dict, Iterable, List, Tuple
 from uuid import UUID
+
+from abastecepyme.domain.entities.dependency import Dependency
+from abastecepyme.domain.entities.element import Element
+
 
 class DependencyGraph:
     """
-    Grafo dirigido propio representado con lista de adyacencia.
-    Arista A -> B significa: "Para producir A necesito B".
+    Grafo dirigido propio, implementado con listas de adyacencia (sin librerías externas).
 
-    Se usa lista de adyacencia porque el grafo es disperso (cada elemento
-    depende de pocos otros) y los recorridos de F2/F3 necesitan iterar los
-    vecinos de un nodo: O(V + E) en memoria y O(grado) por consulta de vecinos.
+    Una arista A -> B se lee: "para producir A necesito B".
+
+    Se mantienen dos índices:
+      - _requires:    nodo -> lista de nodos que ese nodo requiere (aristas salientes)
+      - _required_by: nodo -> lista de nodos que lo requieren (aristas entrantes)
+    El segundo permite recorrer el grafo "al revés" (análisis de impacto de un
+    proveedor) sin tener que recalcular nada.
     """
 
-    def __init__(self):
-        self._adjacency: Dict[UUID, List[UUID]] = {}
+    def __init__(self) -> None:
+        self._nodes: Dict[UUID, Element] = {}
+        self._requires: Dict[UUID, List[UUID]] = {}
+        self._required_by: Dict[UUID, List[UUID]] = {}
 
-    def add_node(self, node_id: UUID) -> None:
-        if node_id not in self._adjacency:
-            self._adjacency[node_id] = []
+    @classmethod
+    def build(
+        cls, elements: Iterable[Element], dependencies: Iterable[Dependency]
+    ) -> "DependencyGraph":
+        graph = cls()
+        for element in elements:
+            graph.add_node(element)
+        for dependency in dependencies:
+            # Se ignoran aristas cuyo extremo no está en el grafo (p. ej. elementos inactivos)
+            if graph.has_node(dependency.requiring_element_id) and graph.has_node(
+                dependency.required_element_id
+            ):
+                graph.add_edge(dependency.requiring_element_id, dependency.required_element_id)
+        return graph
 
-    def add_edge(self, requiring_id: UUID, required_id: UUID) -> None:
-        if requiring_id not in self._adjacency or required_id not in self._adjacency:
-            raise ValueError("Ambos extremos de la arista deben existir en el grafo.")
-        if required_id not in self._adjacency[requiring_id]:
-            self._adjacency[requiring_id].append(required_id)
+    # ---------- Nodos ----------
+    def add_node(self, element: Element) -> None:
+        if element.id in self._nodes:
+            return
+        self._nodes[element.id] = element
+        self._requires[element.id] = []
+        self._required_by[element.id] = []
 
     def has_node(self, node_id: UUID) -> bool:
-        return node_id in self._adjacency
+        return node_id in self._nodes
+
+    def get_node(self, node_id: UUID) -> Element:
+        return self._nodes[node_id]
+
+    @property
+    def nodes(self) -> List[Element]:
+        return list(self._nodes.values())
+
+    # ---------- Aristas ----------
+    def add_edge(self, requiring_id: UUID, required_id: UUID) -> bool:
+        """Agrega la arista requiring -> required. Devuelve False si ya existía."""
+        if requiring_id not in self._nodes or required_id not in self._nodes:
+            raise ValueError("Ambos extremos de la arista deben existir como nodos del grafo.")
+        if self.has_edge(requiring_id, required_id):
+            return False
+        self._requires[requiring_id].append(required_id)
+        self._required_by[required_id].append(requiring_id)
+        return True
 
     def has_edge(self, requiring_id: UUID, required_id: UUID) -> bool:
-        return required_id in self._adjacency.get(requiring_id, [])
+        return required_id in self._requires.get(requiring_id, [])
 
-    def nodes(self) -> List[UUID]:
-        return list(self._adjacency.keys())
-
-    def successors(self, node_id: UUID) -> List[UUID]:
-        """Elementos que 'node_id' necesita directamente."""
-        return list(self._adjacency.get(node_id, []))
-
+    @property
     def edges(self) -> List[Tuple[UUID, UUID]]:
-        return [(origin, target) for origin, targets in self._adjacency.items() for target in targets]
+        return [
+            (requiring_id, required_id)
+            for requiring_id, required_ids in self._requires.items()
+            for required_id in required_ids
+        ]
 
+    @property
     def adjacency(self) -> Dict[UUID, List[UUID]]:
-        return {node: list(targets) for node, targets in self._adjacency.items()}
+        """Copy of each node's adjacency list (outgoing edges)."""
+        return {node_id: list(required_ids) for node_id, required_ids in self._requires.items()}
+
+    # ---------- Consultas ----------
+    def requirements_of(self, node_id: UUID) -> List[UUID]:
+        """Nodos que `node_id` requiere directamente."""
+        return list(self._requires.get(node_id, []))
+
+    def dependents_of(self, node_id: UUID) -> List[UUID]:
+        """Nodos que requieren directamente a `node_id`."""
+        return list(self._required_by.get(node_id, []))
+
+    def has_path(self, source: UUID, target: UUID) -> bool:
+        """Búsqueda en profundidad iterativa siguiendo la dirección de las aristas."""
+        if source == target:
+            return True
+        visited = {source}
+        stack = [source]
+        while stack:
+            current = stack.pop()
+            for neighbour in self._requires.get(current, []):
+                if neighbour == target:
+                    return True
+                if neighbour not in visited:
+                    visited.add(neighbour)
+                    stack.append(neighbour)
+        return False
+
+    def would_create_cycle(self, requiring_id: UUID, required_id: UUID) -> bool:
+        """
+        Agregar requiring -> required cierra un ciclo si ya existe un camino
+        required -> ... -> requiring (o si ambos son el mismo nodo).
+        """
+        return self.has_path(required_id, requiring_id)

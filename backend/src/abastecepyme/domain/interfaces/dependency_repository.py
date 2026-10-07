@@ -11,16 +11,16 @@ class DependencyRepository(ABC):
 
     @abstractmethod
     def save(self, dependency: Dependency) -> Dependency:
-        pass
+        """Guarda una dependencia nueva. Lanza DuplicateDependencyException si ya existe."""
 
     @abstractmethod
     def exists(self, requiring_element_id: UUID, required_element_id: UUID) -> bool:
-        pass
-
-    @abstractmethod
-    def get_dependencies_for_element(self, element_id: UUID) -> List[Dependency]:
-        pass
+        """Indica si ya está registrada la arista requiring -> required."""
 
     @abstractmethod
     def get_all(self) -> List[Dependency]:
-        pass
+        """Devuelve todas las dependencias (aristas) registradas."""
+
+    @abstractmethod
+    def get_dependencies_for_element(self, element_id: UUID) -> List[Dependency]:
+        """Devuelve las dependencias donde el elemento es el que requiere."""

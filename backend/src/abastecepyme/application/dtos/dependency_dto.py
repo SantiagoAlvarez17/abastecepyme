@@ -6,7 +6,7 @@ class DependencyCreateDTO(BaseModel):
     required_element_id: UUID
 
 class DependencyResponseDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     requiring_element_id: UUID
     required_element_id: UUID
-
-    model_config = ConfigDict(from_attributes=True)
