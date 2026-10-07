@@ -38,7 +38,7 @@ Se abre en http://localhost:8501. Si la API está en otra dirección, defina ant
 ## Modelo del grafo (resumen)
 - **Nodos:** proveedores, insumos y productos.
 - **Aristas dirigidas:** `A → B` = "Para producir A necesito B". Por ejemplo, `Pan → Harina → Molinos SA`.
-- **Representación:** lista de adyacencia propia (`DependencyGraph`), sin librerías de grafos.
+- **Representación:** listas de adyacencia propias (`DependencyGraph`), una de salida y otra inversa, sin librerías de grafos.
 - **Interfaz:** la red se dibuja con Graphviz a partir de lo que devuelve `GET /graph`. La interfaz no calcula nada del grafo por su cuenta.
 
 
@@ -53,5 +53,5 @@ Se abre en http://localhost:8501. Si la API está en otra dirección, defina ant
    python scripts/aceptacion_f1.py
    ```
 
-El script prueba el escenario normal, el grafo vacío, un nodo inexistente, una relación repetida, una autodependencia, un nombre repetido, datos inválidos, una relación con tipos inválidos y un ciclo. Para cada escenario imprime qué se esperaba, qué se obtuvo y si pasó o falló.
+El script prueba el escenario normal, el grafo vacío, un nodo inexistente, una relación no registrada, una relación repetida, una autodependencia, un nombre repetido, datos inválidos, una relación con tipos inválidos y un ciclo. Para cada escenario imprime qué se esperaba, qué se obtuvo y si pasó o falló.
 Antes de volver a ejecutarlo, borre `aceptacion.db`.

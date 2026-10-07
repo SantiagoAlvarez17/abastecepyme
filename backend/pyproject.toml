@@ -17,3 +17,7 @@ dependencies = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/abastecepyme"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
