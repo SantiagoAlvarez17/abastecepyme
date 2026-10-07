@@ -1,12 +1,11 @@
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Annotated
+from pydantic import BaseModel, ConfigDict, StringConstraints
 from uuid import UUID
 from abastecepyme.domain.enums.element_type import ElementType
 
 class ElementCreateDTO(BaseModel):
-    # Se recortan los espacios antes de validar: un nombre de solo espacios se rechaza
-    model_config = ConfigDict(str_strip_whitespace=True)
-
-    name: str = Field(..., min_length=1, max_length=255)
+    # strip_whitespace: "   " cuenta como nombre vacío
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
     element_type: ElementType
 
 class ElementResponseDTO(BaseModel):

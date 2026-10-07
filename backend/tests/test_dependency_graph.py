@@ -44,6 +44,17 @@ def test_requisitos_y_dependientes():
     assert graph.dependents_of(producto.id) == []
 
 
+def test_adjacency_lista_aristas_salientes_por_nodo():
+    proveedor = el("Molinos", ElementType.PROVEEDOR)
+    insumo = el("Harina", ElementType.INSUMO)
+    graph = DependencyGraph.build([proveedor, insumo], [dep(insumo, proveedor)])
+
+    adjacency = graph.adjacency
+    adjacency[insumo.id].clear()  # must be a copy: mutating it cannot alter the graph
+
+    assert graph.adjacency == {insumo.id: [proveedor.id], proveedor.id: []}
+
+
 def test_build_ignora_aristas_con_extremos_ausentes():
     insumo = el("Harina", ElementType.INSUMO)
     fantasma = el("Inactivo", ElementType.PROVEEDOR)

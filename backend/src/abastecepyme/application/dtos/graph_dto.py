@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List
 from uuid import UUID
 from pydantic import BaseModel
 from abastecepyme.application.dtos.element_dto import ElementResponseDTO
@@ -9,5 +9,7 @@ class GraphEdgeDTO(BaseModel):
     description: str  # "Para producir X necesito Y"
 
 class GraphResponseDTO(BaseModel):
+    direction: str
     nodes: List[ElementResponseDTO]
     edges: List[GraphEdgeDTO]
+    adjacency: Dict[UUID, List[UUID]]

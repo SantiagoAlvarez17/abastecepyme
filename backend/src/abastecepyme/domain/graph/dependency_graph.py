@@ -78,6 +78,11 @@ class DependencyGraph:
             for required_id in required_ids
         ]
 
+    @property
+    def adjacency(self) -> Dict[UUID, List[UUID]]:
+        """Copy of each node's adjacency list (outgoing edges)."""
+        return {node_id: list(required_ids) for node_id, required_ids in self._requires.items()}
+
     # ---------- Consultas ----------
     def requirements_of(self, node_id: UUID) -> List[UUID]:
         """Nodos que `node_id` requiere directamente."""

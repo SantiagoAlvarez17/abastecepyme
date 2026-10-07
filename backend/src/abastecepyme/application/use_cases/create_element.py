@@ -2,12 +2,17 @@ from uuid import uuid4
 from abastecepyme.domain.entities.element import Element
 from abastecepyme.domain.interfaces.element_repository import ElementRepository
 from abastecepyme.application.dtos.element_dto import ElementCreateDTO, ElementResponseDTO
+from abastecepyme.core.exceptions import DuplicateElementException
 
 class CreateElementUseCase:
     def __init__(self, element_repository: ElementRepository):
         self.element_repository = element_repository
 
     def execute(self, dto: ElementCreateDTO) -> ElementResponseDTO:
+        # El nombre es el identificador de negocio: único sin distinguir mayúsculas
+        if self.element_repository.get_by_name(dto.name):
+            raise DuplicateElementException(dto.name)
+
         element = Element(
             id=uuid4(),
             name=dto.name,

@@ -8,7 +8,6 @@ from abastecepyme.application.use_cases.get_graph import GetDependencyGraphUseCa
 from abastecepyme.application.use_cases.list_dependencies import ListDependenciesUseCase
 from abastecepyme.application.use_cases.register_dependency import RegisterDependencyUseCase
 from abastecepyme.core.exceptions import (
-    CycleDependencyException,
     DuplicateDependencyException,
     ElementNotFoundException,
     InvalidDependencyException,
@@ -31,6 +30,9 @@ class InMemoryElementRepository(ElementRepository):
 
     def get_by_id(self, element_id):
         return self.items.get(element_id)
+
+    def get_by_name(self, name):
+        return next((e for e in self.items.values() if e.name.lower() == name.lower()), None)
 
     def get_all(self, active_only=True):
         return [e for e in self.items.values() if e.is_active or not active_only]
@@ -116,7 +118,7 @@ def test_rechaza_dependencia_repetida(repos):
         register(repos, insumo, proveedor)
 
     assert error.value.status_code == 409
-    assert error.value.error_code == "ERR_DEPENDENCY_ALREADY_EXISTS"
+    assert error.value.error_code == "ERR_DUPLICATE_DEPENDENCY"
     assert len(repos[1].items) == 1
 
 
@@ -179,28 +181,28 @@ def test_listar_dependencias_vacio(repos):
     assert ListDependenciesUseCase(repos[1]).execute() == []
 
 
-def test_rechaza_ciclo_directo(repos):
+def test_registra_ciclo_directo(repos):
+    # F1 stores cycles; detecting and reporting them belongs to F3
     producto_a = make_element(repos[0], "Combo", ElementType.PRODUCTO)
     producto_b = make_element(repos[0], "Pan", ElementType.PRODUCTO)
     register(repos, producto_a, producto_b)
 
-    with pytest.raises(CycleDependencyException) as error:
-        register(repos, producto_b, producto_a)
+    register(repos, producto_b, producto_a)
 
-    assert error.value.status_code == 409
-    assert error.value.error_code == "ERR_DEPENDENCY_CYCLE"
-    assert len(repos[1].items) == 1
+    assert repos[1].exists(producto_b.id, producto_a.id)
+    assert len(repos[1].items) == 2
 
 
-def test_rechaza_ciclo_indirecto(repos):
+def test_registra_ciclo_indirecto(repos):
     a = make_element(repos[0], "A", ElementType.PRODUCTO)
     b = make_element(repos[0], "B", ElementType.PRODUCTO)
     c = make_element(repos[0], "C", ElementType.PRODUCTO)
     register(repos, a, b)
     register(repos, b, c)
 
-    with pytest.raises(CycleDependencyException):
-        register(repos, c, a)
+    register(repos, c, a)
+
+    assert repos[1].exists(c.id, a.id)
 
 
 def test_permite_atajo_sin_ciclo(repos):

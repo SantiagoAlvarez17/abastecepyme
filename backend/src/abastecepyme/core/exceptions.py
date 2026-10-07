@@ -22,29 +22,25 @@ class InvalidDependencyException(BusinessException):
         )
 
 class SelfDependencyException(BusinessException):
-    def __init__(self):
+    def __init__(self, name: str):
         super().__init__(
             error_code="ERR_SELF_DEPENDENCY",
-            message="Un elemento no puede depender de sí mismo.",
+            message=f"'{name}' no puede depender de sí mismo.",
             status_code=400
         )
 
 class DuplicateDependencyException(BusinessException):
-    def __init__(self, requiring: str, required: str):
+    def __init__(self, requiring_name: str, required_name: str):
         super().__init__(
-            error_code="ERR_DEPENDENCY_ALREADY_EXISTS",
-            message=f"La dependencia ya existe: '{requiring}' ya requiere a '{required}'.",
+            error_code="ERR_DUPLICATE_DEPENDENCY",
+            message=f"La dependencia 'Para producir {requiring_name} necesito {required_name}' ya existe.",
             status_code=409
         )
 
-class CycleDependencyException(BusinessException):
-    def __init__(self, requiring: str, required: str):
+class DuplicateElementException(BusinessException):
+    def __init__(self, name: str):
         super().__init__(
-            error_code="ERR_DEPENDENCY_CYCLE",
-            message=(
-                f"No se puede registrar: '{requiring}' requiere a '{required}', pero "
-                f"'{required}' ya depende (directa o indirectamente) de '{requiring}'. "
-                "Se formaría un ciclo."
-            ),
+            error_code="ERR_DUPLICATE_ELEMENT",
+            message=f"Ya existe un elemento con el nombre '{name}'.",
             status_code=409
         )

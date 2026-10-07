@@ -5,6 +5,8 @@ from abastecepyme.application.dtos.element_dto import ElementResponseDTO
 from abastecepyme.application.dtos.graph_dto import GraphEdgeDTO, GraphResponseDTO
 
 class GetDependencyGraphUseCase:
+    """Construye el grafo propio a partir de lo persistido y lo expone."""
+
     def __init__(
         self,
         element_repository: ElementRepository,
@@ -40,4 +42,9 @@ class GetDependencyGraphUseCase:
                 )
             )
 
-        return GraphResponseDTO(nodes=nodes, edges=edges)
+        return GraphResponseDTO(
+            direction="A -> B: Para producir A necesito B",
+            nodes=nodes,
+            edges=edges,
+            adjacency=graph.adjacency
+        )

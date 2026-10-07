@@ -1,5 +1,6 @@
 from typing import List, Optional
 from uuid import UUID
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from abastecepyme.domain.interfaces.element_repository import ElementRepository
 from abastecepyme.domain.entities.element import Element
@@ -22,6 +23,19 @@ class SQLElementRepository(ElementRepository):
 
     def get_by_id(self, element_id: UUID) -> Optional[Element]:
         model = self.db.query(ElementModel).filter(ElementModel.id == element_id).first()
+        if not model:
+            return None
+        return Element(
+            id=model.id,
+            name=model.name,
+            element_type=model.element_type,
+            is_active=model.is_active
+        )
+
+    def get_by_name(self, name: str) -> Optional[Element]:
+        model = self.db.query(ElementModel).filter(
+            func.lower(ElementModel.name) == name.lower()
+        ).first()
         if not model:
             return None
         return Element(

@@ -1,7 +1,9 @@
+from typing import List
 from fastapi import APIRouter, Depends, status
 from abastecepyme.application.dtos.dependency_dto import DependencyCreateDTO, DependencyResponseDTO
 from abastecepyme.application.use_cases.register_dependency import RegisterDependencyUseCase
-from abastecepyme.presentation.dependencies import get_register_dependency_use_case
+from abastecepyme.application.use_cases.list_dependencies import ListDependenciesUseCase
+from abastecepyme.presentation.dependencies import get_register_dependency_use_case, get_list_dependencies_use_case
 
 router = APIRouter(prefix="/dependencies", tags=["Dependencies"])
 
@@ -11,3 +13,9 @@ def register_dependency(
     use_case: RegisterDependencyUseCase = Depends(get_register_dependency_use_case)
 ):
     return use_case.execute(dto)
+
+@router.get("", response_model=List[DependencyResponseDTO])
+def list_dependencies(
+    use_case: ListDependenciesUseCase = Depends(get_list_dependencies_use_case)
+):
+    return use_case.execute()

@@ -1,5 +1,21 @@
 import { ElementRepository, CreateElementDTO } from '../../domain/interfaces/ElementRepository';
 import { Element } from '../../domain/entities/Element';
+import { ElementType } from '../../domain/enums/ElementType';
+
+// Forma exacta que devuelve la API (snake_case)
+interface ElementApiResponse {
+  id: string;
+  name: string;
+  element_type: ElementType;
+  is_active: boolean;
+}
+
+const toElement = (raw: ElementApiResponse): Element => ({
+  id: raw.id,
+  name: raw.name,
+  elementType: raw.element_type,
+  isActive: raw.is_active,
+});
 
 export class ApiElementRepository implements ElementRepository {
   private readonly baseUrl = 'http://localhost:8000/elements'; // Adjust for production
@@ -9,7 +25,8 @@ export class ApiElementRepository implements ElementRepository {
     if (!response.ok) {
       throw new Error('Error al obtener los elementos');
     }
-    return response.json();
+    const data: ElementApiResponse[] = await response.json();
+    return data.map(toElement);
   }
 
   async create(element: CreateElementDTO): Promise<Element> {
@@ -18,11 +35,11 @@ export class ApiElementRepository implements ElementRepository {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(element),
     });
-    
+
     if (!response.ok) {
       const err = await response.json();
       throw new Error(err.message || 'Error al crear elemento');
     }
-    return response.json();
+    return toElement(await response.json());
   }
 }
