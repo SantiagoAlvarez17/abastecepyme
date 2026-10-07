@@ -1,9 +1,12 @@
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from abastecepyme.core.exceptions import BusinessException
 from abastecepyme.presentation.routes.element_routes import router as element_router
 from abastecepyme.presentation.routes.dependency_routes import router as dependency_router
+from abastecepyme.presentation.routes.graph_routes import router as graph_router
 from abastecepyme.infrastructure.database.models.base import Base
 from abastecepyme.infrastructure.database.session import engine
 
@@ -35,5 +38,22 @@ async def business_exception_handler(request: Request, exc: BusinessException):
         }
     )
 
+# Mismo formato {error_code, message} para datos mal formados
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = exc.errors()
+    message = "; ".join(
+        f"{'.'.join(str(p) for p in e['loc'] if p != 'body')}: {e['msg']}" for e in errors
+    )
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error_code": "ERR_VALIDATION",
+            "message": f"Datos inválidos: {message}",
+            "details": jsonable_encoder(errors)
+        }
+    )
+
 app.include_router(element_router)
 app.include_router(dependency_router)
+app.include_router(graph_router)

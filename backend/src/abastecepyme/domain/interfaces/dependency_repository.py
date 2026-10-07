@@ -8,11 +8,19 @@ class DependencyRepository(ABC):
     Contrato abstracto (Puerto) para la persistencia de Dependencias.
     Asegura el Principio de Segregación de Interfaces (ISP) y DIP.
     """
-    
+
     @abstractmethod
     def save(self, dependency: Dependency) -> Dependency:
         pass
 
     @abstractmethod
+    def exists(self, requiring_element_id: UUID, required_element_id: UUID) -> bool:
+        pass
+
+    @abstractmethod
     def get_dependencies_for_element(self, element_id: UUID) -> List[Dependency]:
+        pass
+
+    @abstractmethod
+    def get_all(self) -> List[Dependency]:
         pass
