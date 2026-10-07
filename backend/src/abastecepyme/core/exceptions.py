@@ -20,3 +20,27 @@ class InvalidDependencyException(BusinessException):
             message=message,
             status_code=400
         )
+
+class SelfDependencyException(BusinessException):
+    def __init__(self, name: str):
+        super().__init__(
+            error_code="ERR_SELF_DEPENDENCY",
+            message=f"'{name}' no puede depender de sí mismo.",
+            status_code=400
+        )
+
+class DuplicateDependencyException(BusinessException):
+    def __init__(self, requiring_name: str, required_name: str):
+        super().__init__(
+            error_code="ERR_DUPLICATE_DEPENDENCY",
+            message=f"La dependencia 'Para producir {requiring_name} necesito {required_name}' ya existe.",
+            status_code=409
+        )
+
+class DuplicateElementException(BusinessException):
+    def __init__(self, name: str):
+        super().__init__(
+            error_code="ERR_DUPLICATE_ELEMENT",
+            message=f"Ya existe un elemento con el nombre '{name}'.",
+            status_code=409
+        )

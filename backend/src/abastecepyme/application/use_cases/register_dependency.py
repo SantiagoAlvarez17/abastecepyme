@@ -3,7 +3,12 @@ from abastecepyme.domain.enums.element_type import ElementType
 from abastecepyme.domain.interfaces.element_repository import ElementRepository
 from abastecepyme.domain.interfaces.dependency_repository import DependencyRepository
 from abastecepyme.application.dtos.dependency_dto import DependencyCreateDTO, DependencyResponseDTO
-from abastecepyme.core.exceptions import ElementNotFoundException, InvalidDependencyException
+from abastecepyme.core.exceptions import (
+    DuplicateDependencyException,
+    ElementNotFoundException,
+    InvalidDependencyException,
+    SelfDependencyException,
+)
 
 class RegisterDependencyUseCase:
     def __init__(
@@ -18,10 +23,13 @@ class RegisterDependencyUseCase:
         req_id = dto.requiring_element_id
         required_id = dto.required_element_id
 
-        # 1. Validar existencia
+        # 1. Validar existencia y que no sea autodependencia
         requiring_element = self.element_repository.get_by_id(req_id)
         if not requiring_element or not requiring_element.is_active:
             raise ElementNotFoundException(str(req_id))
+
+        if req_id == required_id:
+            raise SelfDependencyException(requiring_element.name)
 
         required_element = self.element_repository.get_by_id(required_id)
         if not required_element or not required_element.is_active:
@@ -40,7 +48,11 @@ class RegisterDependencyUseCase:
         if req_type == ElementType.PRODUCTO and required_type == ElementType.PROVEEDOR:
             raise InvalidDependencyException("Un producto no puede depender directamente de un proveedor (requiere insumos).")
 
-        # 3. Guardar dependencia
+        # 3. Rechazar relaciones repetidas
+        if self.dependency_repository.exists(req_id, required_id):
+            raise DuplicateDependencyException(requiring_element.name, required_element.name)
+
+        # 4. Guardar dependencia
         dependency = Dependency(
             requiring_element_id=req_id,
             required_element_id=required_id
