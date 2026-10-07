@@ -6,6 +6,8 @@ from abastecepyme.infrastructure.repositories.sql_dependency_repository import S
 from abastecepyme.application.use_cases.create_element import CreateElementUseCase
 from abastecepyme.application.use_cases.list_elements import ListElementsUseCase
 from abastecepyme.application.use_cases.register_dependency import RegisterDependencyUseCase
+from abastecepyme.application.use_cases.list_dependencies import ListDependenciesUseCase
+from abastecepyme.application.use_cases.get_graph import GetDependencyGraphUseCase
 
 def get_element_repository(db: Session = Depends(get_db)) -> SQLElementRepository:
     return SQLElementRepository(db)
@@ -28,3 +30,14 @@ def get_register_dependency_use_case(
     dep_repo: SQLDependencyRepository = Depends(get_dependency_repository)
 ) -> RegisterDependencyUseCase:
     return RegisterDependencyUseCase(elem_repo, dep_repo)
+
+def get_list_dependencies_use_case(
+    dep_repo: SQLDependencyRepository = Depends(get_dependency_repository)
+) -> ListDependenciesUseCase:
+    return ListDependenciesUseCase(dep_repo)
+
+def get_graph_use_case(
+    elem_repo: SQLElementRepository = Depends(get_element_repository),
+    dep_repo: SQLDependencyRepository = Depends(get_dependency_repository)
+) -> GetDependencyGraphUseCase:
+    return GetDependencyGraphUseCase(elem_repo, dep_repo)
