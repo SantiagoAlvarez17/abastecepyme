@@ -9,9 +9,9 @@ class ElementCreateDTO(BaseModel):
     element_type: ElementType
 
 class ElementResponseDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     name: str
     element_type: ElementType
     is_active: bool
-
-    model_config = ConfigDict(from_attributes=True)

@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Request
-from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,19 +37,25 @@ async def business_exception_handler(request: Request, exc: BusinessException):
         }
     )
 
-# Mismo formato {error_code, message} para datos mal formados
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    errors = exc.errors()
-    message = "; ".join(
-        f"{'.'.join(str(p) for p in e['loc'] if p != 'body')}: {e['msg']}" for e in errors
+    # Datos mal formados: misma forma de error que las excepciones de negocio
+    details = [
+        {
+            "field": ".".join(str(part) for part in err["loc"][1:]),
+            "message": str(err["msg"])
+        }
+        for err in exc.errors()
+    ]
+    summary = "; ".join(
+        f"{d['field']}: {d['message']}" if d["field"] else d["message"] for d in details
     )
     return JSONResponse(
         status_code=422,
         content={
             "error_code": "ERR_VALIDATION",
-            "message": f"Datos inválidos: {message}",
-            "details": jsonable_encoder(errors)
+            "message": f"Datos mal formados. {summary}",
+            "details": details
         }
     )
 

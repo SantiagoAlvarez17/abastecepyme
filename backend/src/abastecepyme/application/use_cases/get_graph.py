@@ -2,10 +2,9 @@ from abastecepyme.domain.graph.dependency_graph import DependencyGraph
 from abastecepyme.domain.interfaces.element_repository import ElementRepository
 from abastecepyme.domain.interfaces.dependency_repository import DependencyRepository
 from abastecepyme.application.dtos.element_dto import ElementResponseDTO
-from abastecepyme.application.dtos.dependency_dto import DependencyResponseDTO
-from abastecepyme.application.dtos.graph_dto import GraphResponseDTO
+from abastecepyme.application.dtos.graph_dto import GraphEdgeDTO, GraphResponseDTO
 
-class GetGraphUseCase:
+class GetDependencyGraphUseCase:
     """Construye el grafo propio a partir de lo persistido y lo expone."""
 
     def __init__(
@@ -16,32 +15,36 @@ class GetGraphUseCase:
         self.element_repository = element_repository
         self.dependency_repository = dependency_repository
 
-    def build_graph(self) -> DependencyGraph:
-        graph = DependencyGraph()
-        for element in self.element_repository.get_all(active_only=True):
-            graph.add_node(element.id)
-        for dep in self.dependency_repository.get_all():
-            # Aristas hacia elementos inactivos no forman parte de la red visible
-            if graph.has_node(dep.requiring_element_id) and graph.has_node(dep.required_element_id):
-                graph.add_edge(dep.requiring_element_id, dep.required_element_id)
-        return graph
-
     def execute(self) -> GraphResponseDTO:
-        elements = self.element_repository.get_all(active_only=True)
-        graph = self.build_graph()
+        graph = DependencyGraph.build(
+            self.element_repository.get_all(active_only=True),
+            self.dependency_repository.get_all()
+        )
+
+        nodes = [
+            ElementResponseDTO(
+                id=e.id,
+                name=e.name,
+                element_type=e.element_type,
+                is_active=e.is_active
+            ) for e in graph.nodes
+        ]
+
+        edges = []
+        for requiring_id, required_id in graph.edges:
+            requiring = graph.get_node(requiring_id)
+            required = graph.get_node(required_id)
+            edges.append(
+                GraphEdgeDTO(
+                    requiring_element_id=requiring_id,
+                    required_element_id=required_id,
+                    description=f"Para producir {requiring.name} necesito {required.name}"
+                )
+            )
+
         return GraphResponseDTO(
             direction="A -> B: Para producir A necesito B",
-            nodes=[
-                ElementResponseDTO(
-                    id=e.id,
-                    name=e.name,
-                    element_type=e.element_type,
-                    is_active=e.is_active
-                ) for e in elements
-            ],
-            edges=[
-                DependencyResponseDTO(requiring_element_id=a, required_element_id=b)
-                for a, b in graph.edges()
-            ],
-            adjacency=graph.adjacency()
+            nodes=nodes,
+            edges=edges,
+            adjacency=graph.adjacency
         )
