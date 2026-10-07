@@ -101,6 +101,17 @@ def main():
               "404 ERR_ELEMENT_NOT_FOUND", f"{st} {codigo_error(cuerpo)}",
               st == 404 and codigo_error(cuerpo) == "ERR_ELEMENT_NOT_FOUND")
 
+    # --- Unregistered relation: Pan reaches Molinos SA only indirectly, never directly ---
+    st, g = llamar("GET", "/graph")
+    pares = {(e["requiring_element_id"], e["required_element_id"]) for e in g["edges"]}
+    directa = (creados["Pan"], creados["Molinos SA"]) in pares
+    en_adyacencia = creados["Molinos SA"] in g["adjacency"].get(creados["Pan"], [])
+    estado = {True: "presente", False: "ausente"}
+    escenario("Relación inexistente: 'Para producir Pan necesito Molinos SA' (directa)",
+              "ausente en edges y en adjacency",
+              f"edges={estado[directa]}, adjacency={estado[en_adyacencia]}",
+              st == 200 and not directa and not en_adyacencia)
+
     # --- Relación repetida ---
     st, cuerpo = llamar("POST", "/dependencies",
                         {"requiring_element_id": creados["Pan"], "required_element_id": creados["Masa madre"]})
