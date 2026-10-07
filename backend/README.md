@@ -64,6 +64,13 @@ Consecuencia para F2: cuando falla un proveedor, el impacto se calcula recorrien
 - F1 rechaza la autodependencia directa (A → A).
 - Los ciclos más largos (Pan → Masa madre → Pan) se registran. Detectarlos y alertar corresponde a F3.
 
+## Datos de ejemplo
+Para cargar un escenario sintético (una panadería ficticia con 6 proveedores, 7 insumos y 5 productos), con la API levantada:
+```bash
+python scripts/cargar_datos_ejemplo.py
+```
+Se puede ejecutar varias veces: lo que ya existe no se duplica. No lo use sobre la base de las pruebas de aceptación, que debe estar vacía.
+
 ## Pruebas de aceptación
 1. Levante la API sobre una base vacía:
    ```bash
