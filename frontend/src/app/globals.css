@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* Neutros industriales */
+  --color-ink-950: #0b1220;
+  --color-ink-900: #111a2e;
+  --color-ink-700: #2b3650;
+  --color-ink-500: #5b6781;
+  --color-ink-300: #aab3c5;
+  --color-ink-200: #d7dce6;
+  --color-ink-100: #e8ebf1;
+  --color-ink-50: #f5f7fa;
+
+  /* Marca */
+  --color-brand-600: #2557d6;
+  --color-brand-500: #3b6cf0;
+  --color-brand-100: #e3ebff;
+
+  /* Tipos de elemento */
+  --color-proveedor: #d97706;
+  --color-proveedor-soft: #fef3c7;
+  --color-insumo: #0d9488;
+  --color-insumo-soft: #ccfbf1;
+  --color-producto: #6d28d9;
+  --color-producto-soft: #ede9fe;
+
+  /* Estados */
+  --color-danger: #dc2626;
+  --color-danger-soft: #fee2e2;
+  --color-success: #16a34a;
+  --color-success-soft: #dcfce7;
+}
+
+body {
+  background: var(--color-ink-50);
+  color: var(--color-ink-900);
+  font-family: var(--font-sans);
+}
