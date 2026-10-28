@@ -1,3 +1,4 @@
+from collections import deque
 from typing import Dict, Iterable, List, Tuple
 from uuid import UUID
 
@@ -91,6 +92,25 @@ class DependencyGraph:
     def dependents_of(self, node_id: UUID) -> List[UUID]:
         """Nodos que requieren directamente a `node_id`."""
         return list(self._required_by.get(node_id, []))
+
+    def reachable_from(self, node_id: UUID, reverse: bool = False) -> List[UUID]:
+        """Devuelve, en orden de proximidad, los nodos alcanzables desde `node_id`."""
+        visited = {node_id}
+        queue = deque([node_id])
+        reachable = []
+
+        while queue:
+            current = queue.popleft()
+            neighbours = (
+                self.dependents_of(current) if reverse else self.requirements_of(current)
+            )
+            for neighbour in neighbours:
+                if neighbour not in visited:
+                    visited.add(neighbour)
+                    reachable.append(neighbour)
+                    queue.append(neighbour)
+
+        return reachable
 
     def has_path(self, source: UUID, target: UUID) -> bool:
         """Búsqueda en profundidad iterativa siguiendo la dirección de las aristas."""

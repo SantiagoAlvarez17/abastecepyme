@@ -91,6 +91,40 @@ def test_has_path_directo_e_indirecto():
     assert graph.has_path(a.id, a.id) is True
 
 
+def test_reachable_from_sigue_la_direccion_de_las_aristas():
+    proveedor = el("Molinos", ElementType.PROVEEDOR)
+    insumo = el("Harina", ElementType.INSUMO)
+    producto = el("Pan")
+    graph = DependencyGraph.build(
+        [proveedor, insumo, producto], [dep(producto, insumo), dep(insumo, proveedor)]
+    )
+
+    assert graph.reachable_from(producto.id) == [insumo.id, proveedor.id]
+
+
+def test_reachable_from_inverso_encuentra_cadena_de_impacto_sin_repetir_ciclos():
+    proveedor = el("Molinos", ElementType.PROVEEDOR)
+    insumo = el("Harina", ElementType.INSUMO)
+    producto = el("Pan")
+    masa = el("Masa")
+    graph = DependencyGraph.build(
+        [proveedor, insumo, producto, masa],
+        [
+            dep(insumo, proveedor),
+            dep(producto, insumo),
+            dep(masa, insumo),
+            dep(producto, masa),
+            dep(masa, producto),
+        ],
+    )
+
+    assert graph.reachable_from(proveedor.id, reverse=True) == [
+        insumo.id,
+        producto.id,
+        masa.id,
+    ]
+
+
 def test_would_create_cycle():
     a, b, c = el("A"), el("B"), el("C")
     graph = DependencyGraph.build([a, b, c], [dep(a, b), dep(b, c)])

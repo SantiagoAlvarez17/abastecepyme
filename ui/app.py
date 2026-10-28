@@ -68,6 +68,9 @@ if not ok_grafo:
 nodos = grafo["nodes"]
 por_id = {n["id"]: n for n in nodos}
 
+def etiqueta(i):
+    return f"{por_id[i]['name']} ({por_id[i]['element_type']})"
+
 mostrar_resultado()
 
 col_elem, col_dep = st.columns(2)
@@ -91,9 +94,6 @@ with col_dep:
     if len(nodos) < 2:
         st.info("Necesita al menos dos elementos para registrar una dependencia.")
     else:
-        def etiqueta(i):
-            return f"{por_id[i]['name']} ({por_id[i]['element_type']})"
-
         ids = [n["id"] for n in sorted(nodos, key=lambda n: (TIPOS.index(n["element_type"]), n["name"].lower()))]
         # Productos primero en "Para producir…" y proveedores primero en "…necesito"
         requiere = st.selectbox("Para producir…", ids[::-1], format_func=etiqueta, key="dep_origen")
@@ -144,3 +144,40 @@ else:
         ])
     with tab_elem:
         st.table([{"Nombre": n["name"], "Tipo": n["element_type"], "ID": n["id"]} for n in nodos])
+
+st.divider()
+
+# --- Analizar impacto ---
+st.subheader("4. Analizar impacto")
+st.caption(
+    "Desde un proveedor o insumo se muestran los elementos que dependen de él; "
+    "desde un producto se recorren los elementos que necesita."
+)
+if nodos:
+    opciones_impacto = sorted(
+        nodos,
+        key=lambda n: (TIPOS.index(n["element_type"]), n["name"].lower()),
+    )
+    id_impacto = st.selectbox(
+        "Elemento para analizar",
+        [n["id"] for n in opciones_impacto],
+        format_func=etiqueta,
+        key="impact_element",
+    )
+    if st.button("Analizar cadena"):
+        ok, resultado = llamar("GET", f"/impact/{id_impacto}")
+        if ok:
+            st.markdown(f"**{resultado['element']['name']}**: {resultado['message']}")
+            st.caption(f"Recorrido: {resultado['direction']}.")
+            if resultado["visited_elements"]:
+                st.markdown(
+                    "\n".join(
+                        f"- **{element['name']}** "
+                        f"({ETIQUETA_TIPO[element['element_type']]})"
+                        for element in resultado["visited_elements"]
+                    )
+                )
+            else:
+                st.info("No se encontraron elementos relacionados en esa dirección.")
+        else:
+            st.error(resultado)

@@ -6,6 +6,7 @@ from abastecepyme.core.exceptions import BusinessException
 from abastecepyme.presentation.routes.element_routes import router as element_router
 from abastecepyme.presentation.routes.dependency_routes import router as dependency_router
 from abastecepyme.presentation.routes.graph_routes import router as graph_router
+from abastecepyme.presentation.routes.impact_routes import router as impact_router
 from abastecepyme.infrastructure.database.models.base import Base
 from abastecepyme.infrastructure.database.session import engine
 
@@ -62,3 +63,4 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 app.include_router(element_router)
 app.include_router(dependency_router)
 app.include_router(graph_router)
+app.include_router(impact_router)
