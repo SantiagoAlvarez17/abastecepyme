@@ -1,6 +1,6 @@
 # AbastecePyme Backend
 
-API REST de AbastecePyme. Feature 1 es el catálogo de dependencias: registra proveedores, insumos y productos, y las dependencias entre ellos, y muestra la red resultante. Está organizada con Clean Architecture (FastAPI + SQLAlchemy).
+API REST de AbastecePyme. Incluye el catálogo de dependencias y el análisis de la cadena asociada a un elemento. Está organizada con Clean Architecture (FastAPI + SQLAlchemy).
 
 ## Requisitos
 - Python 3.12 o superior
@@ -28,6 +28,9 @@ La documentación interactiva queda en http://localhost:8000/docs
 | POST | `/dependencies` | Registra `{requiring_element_id, required_element_id}` |
 | GET | `/dependencies` | Lista las aristas |
 | GET | `/graph` | Red completa: nodos, aristas y lista de adyacencia |
+| GET | `/impact/{element_id}` | Analiza la cadena asociada al elemento consultado |
+
+`GET /impact/{element_id}` recorre las aristas en sentido inverso para un proveedor o insumo y en la dirección definida para un producto. Devuelve `element`, `direction`, `visited_elements`, un `message` y `status` (`chain_found` o `no_dependencies`). Un elemento inexistente o inactivo responde `404 ERR_ELEMENT_NOT_FOUND`.
 
 Los errores siempre responden con `{error_code, message}`:
 
@@ -46,6 +49,8 @@ Los errores siempre responden con `{error_code, message}`:
 Ejemplo: `Pan → Harina → Molinos SA`. La frase invertida ("Para producir Harina necesito Pan") no tiene sentido, por eso el grafo es dirigido.
 Consecuencia para F2: cuando falla un proveedor, el impacto se calcula recorriendo las aristas en sentido contrario, desde quienes lo necesitan. El modelo ya lo resuelve con una adyacencia inversa (ver *Representación principal*), sin condicionales.
 
+En el análisis, **alcanzar** significa que existe un camino de una o más dependencias entre el elemento consultado y otro; los elementos visitados incluyen tanto dependencias directas como transitivas. El recorrido no repite elementos, por lo que también termina si hay ciclos. Desde un producto se sigue `A → B` para identificar los elementos que necesita; desde un proveedor o insumo se recorre el sentido inverso para identificar qué producción depende de él.
+
 **Reglas de tipos:**
 - Un proveedor no depende de nada.
 - Un insumo solo depende de proveedores.
@@ -59,7 +64,7 @@ Consecuencia para F2: cuando falla un proveedor, el impacto se calcula recorrien
 - La clase propia `DependencyGraph` (`domain/graph/dependency_graph.py`) implementa **listas de adyacencia** con dos índices:
   - `_requires: dict[id, list[id]]`: aristas salientes, lo que cada elemento necesita. Es lo que expone `adjacency` en `GET /graph`.
   - `_required_by: dict[id, list[id]]`: aristas entrantes, quién necesita a cada elemento. Permite recorrer el grafo al revés (impacto de un proveedor en F2) sin recalcular nada.
-- Consultas disponibles: `requirements_of`, `dependents_of`, `has_path` (búsqueda en profundidad iterativa) y `would_create_cycle` (preparada para F3; F1 no la usa para rechazar).
+- Consultas disponibles: `requirements_of`, `dependents_of`, `reachable_from` (recorrido en anchura que permite ambas direcciones), `has_path` (búsqueda en profundidad iterativa) y `would_create_cycle` (preparada para F3; F1 no la usa para rechazar).
 - Se eligió porque el grafo es disperso (cada elemento depende de pocos otros) y los recorridos de F2 y F3 iteran vecinos. Ocupa O(V + E) en memoria (cada arista se guarda dos veces, una por índice), el acceso a los vecinos de un nodo es O(grado) y `has_path` es O(V + E).
 - La base SQL solo sirve para persistir. El grafo se reconstruye en memoria en cada consulta.
 

@@ -1,8 +1,9 @@
 # AbastecePyme
 
-Microproducto para una pyme que fabrica productos sencillos. Le permite registrar **proveedores, insumos y productos** y las **dependencias** entre ellos, para después analizar qué se afecta cuando falla un proveedor y en qué orden conviene preparar la producción.
+Microproducto para una pyme que fabrica productos sencillos. Le permite registrar **proveedores, insumos y productos** y las **dependencias** entre ellos, para después analizar qué se afecta cuando falla un proveedor y qué necesita cada producto.
 
 **Feature 1 — Catálogo de dependencias:** crear y listar elementos, registrar dependencias válidas, rechazar duplicados y datos mal formados, y ver la red mediante la API y una interfaz.
+**Feature 2 — Análisis de impacto:** recorrer la cadena relacionada con un proveedor, insumo o producto, tanto mediante la API como desde la interfaz.
 
 ## Estructura
 | Carpeta | Contenido |
@@ -39,7 +40,9 @@ Se abre en http://localhost:8501. Si la API está en otra dirección, defina ant
 - **Nodos:** proveedores, insumos y productos.
 - **Aristas dirigidas:** `A → B` = "Para producir A necesito B". Por ejemplo, `Pan → Harina → Molinos SA`.
 - **Representación:** listas de adyacencia propias (`DependencyGraph`), una de salida y otra inversa, sin librerías de grafos.
-- **Interfaz:** la red se dibuja con Graphviz a partir de lo que devuelve `GET /graph`. La interfaz no calcula nada del grafo por su cuenta.
+- **Alcanzar:** un elemento alcanza a otro si existe un camino de una o más dependencias entre ellos. No significa que la relación sea directa; el recorrido termina al visitar cada elemento una vez, incluso si hay ciclos.
+- **Análisis:** desde un proveedor o insumo se recorren las aristas en sentido inverso para encontrar quién depende de él; desde un producto se sigue la dirección de las aristas para mostrar sus requisitos. La respuesta identifica el elemento consultado, la dirección, los elementos visitados y si existe una cadena.
+- **Interfaz:** la red se dibuja con Graphviz a partir de lo que devuelve `GET /graph`, y el análisis de impacto consume `GET /impact/{element_id}`. La interfaz no calcula los recorridos.
 
 
 ## Pruebas de aceptación
