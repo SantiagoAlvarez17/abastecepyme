@@ -71,3 +71,20 @@ La guía dice que el código que no se puede explicar, trazar y verificar cuenta
 5. **¿Qué devuelve `GET /graph`** con el catálogo vacío y con datos?
 
 **Pendiente recomendado:** hacer una **traza manual** en papel con el ejemplo Molinos SA → Harina / Levadura → Masa madre → Pan, y compararla con la salida de `GET /graph`. La guía la menciona como forma de verificación y todavía no se ha hecho.
+
+
+---
+
+# Bitácora de uso de IA — Feature 2: Análisis de impacto
+
+## Sesión 4 — Cierre e integración de Feature 2: Análisis de impacto
+
+- **Herramientas:** Claude / Antigravity.
+- **Fecha:** 2026-10-28
+
+| Decisión o pieza | Herramienta/objetivo de IA | Propuesta recibida | Acepté o rechacé y por qué | Cómo la verifiqué |
+|---|---|---|---|---|
+| Diagnóstico de ramas de Feature 2 (`feature/Feacture2` vs `origin/feature/analisis-impacto`) | Analizar el avance existente de F2 frente a los requisitos del brief | Detectó que en la rama actual el sentido del recorrido dependía de un condicional por tipo (`element_type == PRODUCTO`), lo que impedía consultar qué productos se afectan si falla un producto intermedio (`Masa madre`), y no distinguía entre nodo aislado (`isolated`) y nodo sin alcance en esa dirección (`no_reach`) | Acepté el diagnóstico. El brief pide explícitamente no resolver la dirección con condicionales por tipo y diferenciar entre elemento inexistente, elemento sin dependencias y elemento que afecta una cadena | Revisión de `analyze_impact.py`, `dependency_graph.py` y casos de prueba con productos intermedios y nodos aislados |
+| Recorrido BFS propio por niveles (`DependencyGraph.reach`) | Implementar recorrido que devuelva los elementos visitados de forma comprensible | Método `reach(source, reverse=...)` con cola (`deque`) y conjunto `visited` que devuelve `Visit(node_id, level, via_id)` en `O(V + E)`, manteniendo `reachable_from` por compatibilidad | Acepté. Permite agrupar por niveles de afectación (directa vs. en cadena), reconstruir la ruta desde el origen y generar la frase *"Para producir X necesito Y"* de cada paso sin colgarse en ciclos | Pruebas en `test_dependency_graph.py` y `test_analyze_impact.py` (niveles, caminos múltiples, ciclos y nodos aislados) |
+| Modos de consulta (`impact` y `requirements`) y estados (`isolated`, `no_reach`, `chain`) | Unificar el contrato de `GET /impact/{element_id}` | Parámetro `mode=impact|requirements` (por defecto `impact`), `outcome` (`isolated`, `no_reach`, `chain`) y respuesta con niveles detallados (`levels`) más campos planos de compatibilidad (`visited_elements`, `status`, `direction`, `message`) | Acepté. Cumple los 4 casos del brief (`404`, `isolated`, `no_reach`, `chain`), permite consultar tanto hacia atrás (`_required_by`) como hacia adelante (`_requires`) para cualquier elemento y conserva compatibilidad | Pruebas unitarias en `test_analyze_impact.py`, de API en `test_api.py` y script `scripts/aceptacion_f2.py` (16 escenarios) |
+| Visualización del impacto en Streamlit (`ui/app.py`) | Mostrar y destacar la consulta de impacto en la interfaz | Selector de elemento y de sentido (`impact` / `requirements`), métricas de alcance, desglose por niveles con ruta y razón, y resaltado en Graphviz del nodo origen, niveles alcanzados y aristas recorridas | Acepté. Mantiene toda la lógica de recorrido en el backend y usa la interfaz únicamente para presentar y resaltar el resultado de `GET /impact/{element_id}` | Revisión de `ui/app.py` y trazabilidad de los campos devueltos por el endpoint |
