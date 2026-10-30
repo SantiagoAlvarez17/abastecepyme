@@ -1,9 +1,19 @@
 from collections import deque
+from dataclasses import dataclass
 from typing import Dict, Iterable, List, Tuple
 from uuid import UUID
 
 from abastecepyme.domain.entities.dependency import Dependency
 from abastecepyme.domain.entities.element import Element
+
+
+@dataclass(frozen=True)
+class Visit:
+    """Un elemento alcanzado por un recorrido."""
+
+    node_id: UUID
+    level: int    # cantidad de aristas desde el origen (1 = vecino directo)
+    via_id: UUID  # elemento desde el cual se llegó a este (su "padre" en el recorrido)
 
 
 class DependencyGraph:
@@ -93,24 +103,42 @@ class DependencyGraph:
         """Nodos que requieren directamente a `node_id`."""
         return list(self._required_by.get(node_id, []))
 
-    def reachable_from(self, node_id: UUID, reverse: bool = False) -> List[UUID]:
-        """Devuelve, en orden de proximidad, los nodos alcanzables desde `node_id`."""
-        visited = {node_id}
-        queue = deque([node_id])
-        reachable = []
+    def reach(self, source: UUID, *, reverse: bool = False) -> List[Visit]:
+        """
+        Recorrido en anchura (BFS) propio desde `source`.
+
+        - reverse=False: sigue las aristas tal como están (A -> B: "A requiere B"),
+          o sea, recorre lo que `source` necesita.
+        - reverse=True: sigue las aristas al revés, o sea, recorre quienes dependen de
+          `source` (impacto de una falla). Usa el índice `_required_by`, sin condicionales.
+
+        Devuelve los elementos alcanzados, sin incluir `source`, en orden de visita:
+        primero los de nivel 1, luego los de nivel 2, etc. Cada elemento aparece una vez,
+        con su nivel mínimo. El conjunto `visited` evita repetir elementos y garantiza que
+        termina aunque existan ciclos. Costo: O(V + E).
+        """
+        if source not in self._nodes:
+            raise ValueError("El elemento de origen no está en el grafo.")
+
+        index = self._required_by if reverse else self._requires
+        visited = {source}
+        queue = deque([(source, 0)])
+        result: List[Visit] = []
 
         while queue:
-            current = queue.popleft()
-            neighbours = (
-                self.dependents_of(current) if reverse else self.requirements_of(current)
-            )
-            for neighbour in neighbours:
-                if neighbour not in visited:
-                    visited.add(neighbour)
-                    reachable.append(neighbour)
-                    queue.append(neighbour)
+            current, level = queue.popleft()
+            for neighbour in index[current]:
+                if neighbour in visited:
+                    continue
+                visited.add(neighbour)
+                result.append(Visit(node_id=neighbour, level=level + 1, via_id=current))
+                queue.append((neighbour, level + 1))
 
-        return reachable
+        return result
+
+    def reachable_from(self, node_id: UUID, reverse: bool = False) -> List[UUID]:
+        """Devuelve, en orden de proximidad, los nodos alcanzables desde `node_id`."""
+        return [visit.node_id for visit in self.reach(node_id, reverse=reverse)]
 
     def has_path(self, source: UUID, target: UUID) -> bool:
         """Búsqueda en profundidad iterativa siguiendo la dirección de las aristas."""

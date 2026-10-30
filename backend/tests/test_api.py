@@ -129,3 +129,58 @@ def test_grafo_devuelve_aristas_y_adyacencia_coherentes(client):
     }
     assert grafo["adjacency"][producto["id"]] == [insumo["id"]]
     assert grafo["adjacency"][insumo["id"]] == [proveedor["id"]]
+
+
+def test_impacto_api_distingue_inexistente_aislado_sin_alcance_y_cadena(client):
+    molino = crear_elemento(client, "Molinos SA", "proveedor")
+    harina = crear_elemento(client, "Harina", "insumo")
+    masa = crear_elemento(client, "Masa madre", "producto")
+    pan = crear_elemento(client, "Pan", "producto")
+    panela = crear_elemento(client, "Panela", "producto")
+
+    registrar_dependencia(client, harina["id"], molino["id"])
+    registrar_dependencia(client, masa["id"], harina["id"])
+    registrar_dependencia(client, pan["id"], masa["id"])
+
+    # 1. Elemento inexistente -> 404 ERR_ELEMENT_NOT_FOUND
+    inexistente = client.get("/impact/00000000-0000-0000-0000-000000000000")
+    assert inexistente.status_code == 404
+    assert inexistente.json()["error_code"] == "ERR_ELEMENT_NOT_FOUND"
+
+    # 2. Elemento aislado (sin ninguna dependencia) -> 200 isolated
+    aislado = client.get(f"/impact/{panela['id']}").json()
+    assert aislado["outcome"] == "isolated"
+    assert aislado["affected_count"] == 0
+    assert aislado["levels"] == []
+
+    # 3. Elemento sin alcance en la dirección consultada -> 200 no_reach
+    sin_alcance = client.get(f"/impact/{pan['id']}").json()
+    assert sin_alcance["outcome"] == "no_reach"
+    assert sin_alcance["affected_count"] == 0
+
+    # 4. Impacto desde proveedor (recorrido inverso por niveles) -> 200 chain
+    cadena_impacto = client.get(f"/impact/{molino['id']}").json()
+    assert cadena_impacto["outcome"] == "chain"
+    assert cadena_impacto["affected_count"] == 3
+    assert cadena_impacto["max_level"] == 3
+    assert [n["elements"][0]["name"] for n in cadena_impacto["levels"]] == [
+        "Harina",
+        "Masa madre",
+        "Pan",
+    ]
+    assert cadena_impacto["levels"][2]["elements"][0]["path"] == [
+        "Molinos SA",
+        "Harina",
+        "Masa madre",
+        "Pan",
+    ]
+
+    # 5. Requisitos desde un producto (mode=requirements) -> 200 chain
+    requisitos = client.get(f"/impact/{pan['id']}?mode=requirements").json()
+    assert requisitos["outcome"] == "chain"
+    assert requisitos["affected_count"] == 3
+    assert [n["elements"][0]["name"] for n in requisitos["levels"]] == [
+        "Masa madre",
+        "Harina",
+        "Molinos SA",
+    ]
