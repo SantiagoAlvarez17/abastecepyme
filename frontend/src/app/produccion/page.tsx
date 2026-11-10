@@ -7,6 +7,7 @@ import { DependencyGraph } from "@/components/graph/DependencyGraph";
 import { ImpactLevels } from "@/components/impact/ImpactLevels";
 import { ImpactQueryPanel } from "@/components/impact/ImpactQueryPanel";
 import { ImpactSummary } from "@/components/impact/ImpactSummary";
+import { ProductionOrderPanel } from "@/components/production/ProductionOrderPanel";
 import { Card } from "@/components/ui/Card";
 import { CatalogGate } from "@/components/ui/CatalogGate";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -121,6 +122,8 @@ function ProduccionContent() {
                   </div>
                 )}
               </div>
+
+              <ProductionOrderPanel />
             </div>
           )
         }

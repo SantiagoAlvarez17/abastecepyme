@@ -5,6 +5,7 @@ from uuid import UUID
 
 from abastecepyme.domain.entities.dependency import Dependency
 from abastecepyme.domain.entities.element import Element
+from abastecepyme.domain.enums.element_type import ElementType
 
 
 @dataclass(frozen=True)
@@ -14,6 +15,21 @@ class Visit:
     node_id: UUID
     level: int    # cantidad de aristas desde el origen (1 = vecino directo)
     via_id: UUID  # elemento desde el cual se llegó a este (su "padre" en el recorrido)
+
+
+@dataclass(frozen=True)
+class OrderingResult:
+    """Resultado de ordenar el grafo según sus requisitos."""
+
+    # Etapas en orden de preparación. Los elementos de una misma etapa no dependen entre sí.
+    stages: List[List[UUID]]
+    # Elementos que no se pudieron ordenar porque quedan detrás de un ciclo.
+    blocked: List[UUID]
+
+    @property
+    def is_valid(self) -> bool:
+        """True si todos los elementos quedaron ordenados (no hay contradicciones)."""
+        return not self.blocked
 
 
 class DependencyGraph:
@@ -155,6 +171,48 @@ class DependencyGraph:
                     visited.add(neighbour)
                     stack.append(neighbour)
         return False
+
+    def preparation_order(self) -> OrderingResult:
+        """
+        Orden de preparación: ordenamiento topológico propio (algoritmo de Kahn por etapas).
+
+        Una arista A -> B significa "para producir A necesito B", así que B debe estar
+        listo antes que A. Se lleva la cuenta de los requisitos pendientes de cada
+        elemento. En cada etapa se toman los elementos sin requisitos pendientes
+        (proveedores, insumos sin proveedor y elementos aislados en la primera) y, al
+        prepararlos, se descuenta un requisito pendiente a quienes los necesitan
+        (índice `_required_by`). Los que llegan a cero forman la etapa siguiente.
+
+        Si al terminar quedan elementos con requisitos pendientes, hay un ciclo: esos
+        elementos se devuelven en `blocked` y NO se inventa un orden para ellos.
+
+        Dentro de cada etapa los elementos se ordenan por tipo y nombre, para que el
+        resultado sea siempre el mismo sin importar el orden en que se registraron.
+        Costo: O(V + E) del recorrido, más O(V log V) de ordenar las etapas.
+        """
+        pending = {node_id: len(required) for node_id, required in self._requires.items()}
+        ready = [node_id for node_id, count in pending.items() if count == 0]
+
+        stages: List[List[UUID]] = []
+        while ready:
+            ready.sort(key=self._display_key)
+            stages.append(ready)
+
+            next_ready: List[UUID] = []
+            for node_id in ready:
+                for dependent_id in self._required_by[node_id]:
+                    pending[dependent_id] -= 1
+                    if pending[dependent_id] == 0:
+                        next_ready.append(dependent_id)
+            ready = next_ready
+
+        blocked = sorted((n for n, count in pending.items() if count > 0), key=self._display_key)
+        return OrderingResult(stages=stages, blocked=blocked)
+
+    def _display_key(self, node_id: UUID) -> Tuple[int, str]:
+        """Clave de orden estable: primero por tipo (proveedor, insumo, producto) y luego por nombre."""
+        element = self._nodes[node_id]
+        return list(ElementType).index(element.element_type), element.name.casefold()
 
     def would_create_cycle(self, requiring_id: UUID, required_id: UUID) -> bool:
         """

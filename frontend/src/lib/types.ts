@@ -59,3 +59,21 @@ export interface ImpactResponseDTO {
   affected_by_type: Partial<Record<ElementType, number>>;
   levels: ImpactLevelDTO[];
 }
+
+
+// ---------- Feature 3: orden de preparación ----------
+export interface ProductionStepDTO {
+  position: number; // lugar en el orden de trabajo (1, 2, 3, ...)
+  stage: number;    // los pasos de una misma etapa pueden prepararse en paralelo
+  id: string;
+  name: string;
+  element_type: ElementType;
+  requires: string[]; // nombres de sus requisitos directos (todos aparecen antes)
+}
+
+export interface ProductionOrderDTO {
+  total_elements: number;
+  stage_count: number;
+  summary: string;
+  steps: ProductionStepDTO[];
+}

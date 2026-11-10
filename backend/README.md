@@ -30,6 +30,7 @@ La documentación interactiva queda en http://localhost:8000/docs
 | GET | `/graph` | Red completa: nodos, aristas y lista de adyacencia |
 | GET | `/impact/{element_id}` | Analiza qué se afecta si el elemento no está disponible (`mode=impact`, por defecto) |
 | GET | `/impact/{element_id}?mode=requirements` | Analiza qué necesita el elemento para producirse (`mode=requirements`) |
+| GET | `/production-order` | Orden de preparación válido de todo el catálogo (Feature 3) |
 
 `GET /impact/{element_id}` utiliza el recorrido BFS propio `DependencyGraph.reach` y devuelve:
 - `mode`: `"impact"` o `"requirements"`
@@ -42,6 +43,13 @@ La documentación interactiva queda en http://localhost:8000/docs
 
 Un elemento inexistente o inactivo responde `404 ERR_ELEMENT_NOT_FOUND`.
 
+`GET /production-order` genera el orden de trabajo con un ordenamiento topológico propio (`DependencyGraph.preparation_order`) y devuelve:
+- `total_elements` y `stage_count`
+- `summary`: explicación legible del resultado
+- `steps`: el orden de trabajo. Cada paso incluye `position` (lugar en el orden), `stage` (etapa), `id`, `name`, `element_type` y `requires` (nombres de sus requisitos directos, todos anteriores en el orden)
+
+Los pasos de una misma etapa no dependen entre sí y pueden prepararse en paralelo. Un catálogo vacío responde 200 con `steps: []`. Si las dependencias forman un ciclo no existe un orden válido: responde `409 ERR_CYCLE_DETECTED` y **no devuelve ningún orden**. Este endpoint no recibe parámetros, por lo que no tiene casos de elemento inexistente ni de identificador inválido.
+
 Los errores siempre responden con `{error_code, message}`:
 
 | Código HTTP | `error_code` | Cuándo |
@@ -49,9 +57,11 @@ Los errores siempre responden con `{error_code, message}`:
 | 404 | `ERR_ELEMENT_NOT_FOUND` | El elemento consultado o uno de los extremos de la dependencia no existe |
 | 409 | `ERR_DUPLICATE_ELEMENT` | Ya existe un elemento con ese nombre |
 | 409 | `ERR_DUPLICATE_DEPENDENCY` | La relación ya estaba registrada |
+| 409 | `ERR_CYCLE_DETECTED` | Las dependencias forman un ciclo y no existe un orden de preparación válido (`GET /production-order`) |
 | 400 | `ERR_SELF_DEPENDENCY` | Un elemento se requiere a sí mismo |
 | 400 | `ERR_INVALID_DEPENDENCY_TYPE` | La combinación de tipos no tiene sentido de negocio |
 | 422 | `ERR_VALIDATION` | Datos mal formados: campo faltante, tipo inválido, id que no es UUID, `mode` inválido o nombre vacío |
+
 
 ## Decisiones de diseño
 
@@ -82,6 +92,7 @@ En el negocio de AbastecePyme, **alcanzar** significa que existe un camino dirig
 **Ciclos:**
 - F1 rechaza la autodependencia directa (`A → A`).
 - Los ciclos más largos (`Pan → Masa madre → Pan`) se registran y `reach` en F2 los recorre sin colgarse ni repetir nodos. Detectarlos y alertar corresponde a F3.
+**Orden de preparación (F3).** Como `A → B` significa "para producir A necesito B", **B debe prepararse antes que A**. El orden se calcula con el algoritmo de Kahn por etapas, propio y sin librerías: se cuentan los requisitos pendientes de cada elemento; en cada etapa se toman los que no tienen ninguno (proveedores, insumos sin proveedor y elementos aislados en la primera) y, al prepararlos, se descuenta un requisito pendiente a quienes los necesitan (índice `_required_by`). Los que llegan a cero forman la etapa siguiente. Si al terminar quedan elementos con requisitos pendientes, hay un ciclo: se devuelven en `OrderingResult.blocked` y el endpoint responde 409 sin inventar un orden. Dentro de cada etapa los elementos se ordenan por tipo y nombre, así que el resultado es siempre el mismo. Complejidad: O(V + E) del recorrido más O(V log V) de ordenar las etapas.
 
 ## Datos de ejemplo
 Para cargar un escenario sintético (una panadería ficticia con 6 proveedores, 7 insumos y 5 productos), con la API levantada:
@@ -104,6 +115,12 @@ Se puede ejecutar varias veces: lo que ya existe no se duplica. No lo use sobre 
    Para probar la Feature 2, borre `aceptacion.db`, reinicie la API y ejecute:
    ```bash
    python scripts/aceptacion_f2.py
+
+ 3. Para probar la Feature 3, borre `aceptacion.db`, reinicie la API y ejecute:
+   ```bash
+   python scripts/aceptacion_f3.py
+   ```
+   El script termina registrando un ciclo, así que la base debe borrarse antes de volver a ejecutarlo.
    ```
 
 ## Pruebas unitarias y de integración (`pytest`)

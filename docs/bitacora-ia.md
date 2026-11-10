@@ -88,3 +88,20 @@ La guía dice que el código que no se puede explicar, trazar y verificar cuenta
 | Recorrido BFS propio por niveles (`DependencyGraph.reach`) | Implementar recorrido que devuelva los elementos visitados de forma comprensible | Método `reach(source, reverse=...)` con cola (`deque`) y conjunto `visited` que devuelve `Visit(node_id, level, via_id)` en `O(V + E)`, manteniendo `reachable_from` por compatibilidad | Acepté. Permite agrupar por niveles de afectación (directa vs. en cadena), reconstruir la ruta desde el origen y generar la frase *"Para producir X necesito Y"* de cada paso sin colgarse en ciclos | Pruebas en `test_dependency_graph.py` y `test_analyze_impact.py` (niveles, caminos múltiples, ciclos y nodos aislados) |
 | Modos de consulta (`impact` y `requirements`) y estados (`isolated`, `no_reach`, `chain`) | Unificar el contrato de `GET /impact/{element_id}` | Parámetro `mode=impact|requirements` (por defecto `impact`), `outcome` (`isolated`, `no_reach`, `chain`) y respuesta con niveles detallados (`levels`) más campos planos de compatibilidad (`visited_elements`, `status`, `direction`, `message`) | Acepté. Cumple los 4 casos del brief (`404`, `isolated`, `no_reach`, `chain`), permite consultar tanto hacia atrás (`_required_by`) como hacia adelante (`_requires`) para cualquier elemento y conserva compatibilidad | Pruebas unitarias en `test_analyze_impact.py`, de API en `test_api.py` y script `scripts/aceptacion_f2.py` (16 escenarios) |
 | Visualización del impacto en Streamlit (`ui/app.py`) | Mostrar y destacar la consulta de impacto en la interfaz | Selector de elemento y de sentido (`impact` / `requirements`), métricas de alcance, desglose por niveles con ruta y razón, y resaltado en Graphviz del nodo origen, niveles alcanzados y aristas recorridas | Acepté. Mantiene toda la lógica de recorrido en el backend y usa la interfaz únicamente para presentar y resaltar el resultado de `GET /impact/{element_id}` | Revisión de `ui/app.py` y trazabilidad de los campos devueltos por el endpoint |
+
+---
+
+# Bitácora de uso de IA — Feature 3: Orden de preparación
+
+## Sesión 5 — Orden de preparación válido sin ciclos (rama `feature/orden-produccion`, [tu nombre])
+
+- **Herramienta:** Claude (chat de claude.ai).
+- **Fecha:** 2026-11-10
+
+| Decisión o pieza | Herramienta/objetivo de IA | Propuesta recibida | Acepté o rechacé y por qué | Cómo la verifiqué |
+|---|---|---|---|---|
+| Sentido del orden | Pedir alternativas de modelado | Como `A → B` es "para producir A necesito B", B se prepara antes que A; el orden sale de proveedores hacia productos finales y se apoya en el índice inverso `_required_by` | Acepté: respeta la frase del negocio y no necesita invertir aristas | Traza manual en papel con la panadería de ejemplo y prueba de la cadena lineal |
+| Algoritmo | Comparar ordenamiento topológico con Kahn y con DFS en post-orden | Kahn por etapas, con cuenta de requisitos pendientes | Acepté Kahn: entrega etapas que pueden hacerse en paralelo y detecta ciclos sin trabajo extra (quedan elementos con requisitos pendientes). Rechacé DFS en post-orden porque no da etapas y necesita estados de color para detectar ciclos | Prueba de propiedad con 200 elementos y 600 dependencias al azar (ninguna dependencia queda después de quien la necesita) |
+| Resultado determinista | Revisar la salida | Ordenar cada etapa por tipo y nombre | Acepté: la salida no cambia con el orden de registro; el costo adicional es O(V log V) | `test_el_resultado_no_depende_del_orden_de_registro` |
+| Ciclos | Definir qué hacer sin orden válido | Responder 409 `ERR_CYCLE_DETECTED` sin lista de pasos y dejar `OrderingResult.blocked` como punto de unión con quien reporta el ciclo exacto | Acepté: así nunca se presenta un orden falso y no se pisa la parte de detección de ciclos de mi compañero | Prueba de API de ciclo y los tres escenarios "Ciclo" del script |
+| Pruebas y script de aceptación | Generar pruebas | 11 pruebas del grafo, 5 de la API y un script de 12 escenarios | Acepté, comprobando que cada expectativa se pudiera trazar a mano | `python -m pytest tests`: [completar]; `python scripts/aceptacion_f3.py`:/12 |
