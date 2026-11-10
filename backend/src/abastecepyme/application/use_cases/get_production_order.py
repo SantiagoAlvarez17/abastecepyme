@@ -35,7 +35,9 @@ class GetProductionOrderUseCase:
 
         ordering = graph.preparation_order()
         if not ordering.is_valid:
-            raise CyclicDependenciesException([graph.get_node(i).name for i in ordering.blocked])
+            raise CyclicDependenciesException(
+                [graph.get_node(node_id).name for node_id in ordering.cycle]
+            )
 
         steps: list[ProductionStepDTO] = []
         for stage_number, stage in enumerate(ordering.stages, start=1):

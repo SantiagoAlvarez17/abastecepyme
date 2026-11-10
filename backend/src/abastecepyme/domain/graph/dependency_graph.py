@@ -25,6 +25,8 @@ class OrderingResult:
     stages: List[List[UUID]]
     # Elementos que no se pudieron ordenar porque quedan detrás de un ciclo.
     blocked: List[UUID]
+    # Ruta cerrada de un ciclo concreto; vacía si el grafo es acíclico.
+    cycle: List[UUID]
 
     @property
     def is_valid(self) -> bool:
@@ -183,8 +185,9 @@ class DependencyGraph:
         prepararlos, se descuenta un requisito pendiente a quienes los necesitan
         (índice `_required_by`). Los que llegan a cero forman la etapa siguiente.
 
-        Si al terminar quedan elementos con requisitos pendientes, hay un ciclo: esos
-        elementos se devuelven en `blocked` y NO se inventa un orden para ellos.
+        Si al terminar quedan elementos con requisitos pendientes, esos elementos se
+        devuelven en `blocked`; `cycle` identifica una ruta cerrada concreta dentro de
+        ellos. NO se inventa un orden para los elementos bloqueados.
 
         Dentro de cada etapa los elementos se ordenan por tipo y nombre, para que el
         resultado sea siempre el mismo sin importar el orden en que se registraron.
@@ -207,7 +210,60 @@ class DependencyGraph:
             ready = next_ready
 
         blocked = sorted((n for n, count in pending.items() if count > 0), key=self._display_key)
-        return OrderingResult(stages=stages, blocked=blocked)
+        cycle = self._find_cycle(blocked) if blocked else []
+        if blocked and not cycle:
+            raise RuntimeError("No se pudo reconstruir el ciclo que bloquea el orden.")
+        return OrderingResult(stages=stages, blocked=blocked, cycle=cycle)
+
+    def _find_cycle(self, candidates: List[UUID]) -> List[UUID]:
+        """Encuentra iterativamente una ruta cerrada de ciclo entre los nodos bloqueados."""
+        candidate_set = set(candidates)
+        state: Dict[UUID, int] = {}
+        path: List[UUID] = []
+        path_positions: Dict[UUID, int] = {}
+
+        for start in candidates:
+            if state.get(start, 0) != 0:
+                continue
+
+            state[start] = 1
+            path_positions[start] = 0
+            path.append(start)
+            stack = [
+                (
+                    start,
+                    iter(node for node in self._requires[start] if node in candidate_set),
+                )
+            ]
+
+            while stack:
+                current, neighbours = stack[-1]
+                try:
+                    neighbour = next(neighbours)
+                except StopIteration:
+                    stack.pop()
+                    state[current] = 2
+                    path_positions.pop(current)
+                    path.pop()
+                    continue
+
+                neighbour_state = state.get(neighbour, 0)
+                if neighbour_state == 1:
+                    return path[path_positions[neighbour]:] + [neighbour]
+                if neighbour_state == 2:
+                    continue
+
+                state[neighbour] = 1
+                path_positions[neighbour] = len(path)
+                path.append(neighbour)
+                stack.append(
+                    (
+                        neighbour,
+                        iter(node for node in self._requires[neighbour] if node in candidate_set),
+                    )
+                )
+
+        return []
 
     def _display_key(self, node_id: UUID) -> Tuple[int, str]:
         """Clave de orden estable: primero por tipo (proveedor, insumo, producto) y luego por nombre."""

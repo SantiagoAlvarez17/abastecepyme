@@ -106,5 +106,10 @@ def test_orden_con_ciclo_responde_409_y_no_entrega_ningun_orden(client):
     cuerpo = respuesta.json()
     assert cuerpo["error_code"] == "ERR_CYCLE_DETECTED"
     assert "steps" not in cuerpo  # nunca se presenta un orden falso
-    assert "Masa madre" in cuerpo["message"] and "Pan" in cuerpo["message"]
+    assert cuerpo["message"] in (
+        "Ciclo detectado: Masa madre → Pan → Masa madre. Las dependencias se contradicen, "
+        "por lo que no existe un orden de preparación válido.",
+        "Ciclo detectado: Pan → Masa madre → Pan. Las dependencias se contradicen, "
+        "por lo que no existe un orden de preparación válido.",
+    )
     assert "Molinos SA" not in cuerpo["message"]  # lo que no depende del ciclo no se acusa

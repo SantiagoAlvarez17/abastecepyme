@@ -156,9 +156,10 @@ def escenarios_con_ciclo(ids):
               st == 409 and codigo_error(cuerpo) == "ERR_CYCLE_DETECTED" and "steps" not in cuerpo)
 
     escenario("Ciclo: el mensaje señala a los elementos bloqueados y no a los demás",
-              "menciona Pan y Torta; no menciona Molinos SA ni Panela",
+              "incluye la ruta cerrada Pan → Torta → Pan (o su inversa); no incluye Molinos SA ni Panela",
               mensaje,
-              "Pan" in mensaje and "Torta" in mensaje and "Molinos SA" not in mensaje and "Panela" not in mensaje)
+              ("Pan → Torta → Pan" in mensaje or "Torta → Pan → Torta" in mensaje)
+              and "Molinos SA" not in mensaje and "Panela" not in mensaje)
 
 
 def main():
