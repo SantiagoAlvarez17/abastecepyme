@@ -49,14 +49,15 @@ class DuplicateElementException(BusinessException):
 class CyclicDependenciesException(BusinessException):
     """Las dependencias se contradicen: no existe un orden de preparación válido."""
 
-    def __init__(self, blocked_names: list[str]):
-        self.blocked_names = blocked_names
+    def __init__(self, cycle_names: list[str]):
+        self.cycle_names = cycle_names
+        cycle = " → ".join(cycle_names)
         super().__init__(
             error_code="ERR_CYCLE_DETECTED",
             message=(
-                "Las dependencias se contradicen (hay al menos un ciclo), "
-                "por lo que no existe un orden de preparación válido. "
-                f"Elementos que no se pueden ordenar: {', '.join(blocked_names)}."
+                f"Ciclo detectado: {cycle}. "
+                "Las dependencias se contradicen, por lo que no existe "
+                "un orden de preparación válido."
             ),
             status_code=409
         )

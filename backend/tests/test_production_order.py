@@ -184,6 +184,10 @@ def test_un_ciclo_deja_bloqueados_a_sus_miembros_y_a_quienes_dependen_de_ellos()
 
     assert not result.is_valid
     assert [g.get_node(i).name for i in result.blocked] == ["Combo", "Masa madre", "Pan"]
+    cycle_names = [g.get_node(i).name for i in result.cycle]
+    assert cycle_names[0] == cycle_names[-1]
+    assert set(cycle_names[:-1]) == {"Masa madre", "Pan"}
+    assert all(g.has_edge(a, b) for a, b in zip(result.cycle, result.cycle[1:]))
     # Lo que no depende del ciclo sí se ordena.
     assert stage_names(g, result) == [["Molinos SA"], ["Harina"]]
 
@@ -196,3 +200,5 @@ def test_un_ciclo_largo_tambien_se_detecta():
 
     assert result.stages == []
     assert len(result.blocked) == 3
+    assert result.cycle[0] == result.cycle[-1]
+    assert all(g.has_edge(a, b) for a, b in zip(result.cycle, result.cycle[1:]))
