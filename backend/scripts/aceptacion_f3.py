@@ -148,18 +148,40 @@ def escenarios_con_ciclo(ids):
     escenario("Ciclo: se registra 'Pan necesita Torta' (Torta ya necesitaba Pan)",
               "201 (el catálogo guarda la relación; el orden es quien detecta la contradicción)", st, st == 201)
 
+    # Un producto que solo depende del ciclo: queda sin orden, pero no es parte del ciclo.
+    st, regalo = llamar("POST", "/elements", {"name": "Paquete regalo", "element_type": "producto"})
+    st_dep, _ = llamar("POST", "/dependencies",
+                       {"requiring_element_id": regalo.get("id"), "required_element_id": ids["Torta"]})
+    escenario("Ciclo: 'Paquete regalo' necesita Torta (depende del ciclo, sin formar parte de él)",
+              "201 y 201", f"{st} y {st_dep}", st == 201 and st_dep == 201)
+
     st, cuerpo = llamar("GET", "/production-order")
-    mensaje = (cuerpo or {}).get("message", "")
+    cuerpo = cuerpo if isinstance(cuerpo, dict) else {}
+    mensaje = cuerpo.get("message", "")
     escenario("Ciclo: no se presenta un orden falso",
               "409 ERR_CYCLE_DETECTED, sin la lista de pasos",
-              f"{st} {codigo_error(cuerpo)}, 'steps' presente: {isinstance(cuerpo, dict) and 'steps' in cuerpo}",
+              f"{st} {codigo_error(cuerpo)}, 'steps' presente: {'steps' in cuerpo}",
               st == 409 and codigo_error(cuerpo) == "ERR_CYCLE_DETECTED" and "steps" not in cuerpo)
 
-    escenario("Ciclo: el mensaje señala a los elementos bloqueados y no a los demás",
-              "incluye la ruta cerrada Pan → Torta → Pan (o su inversa); no incluye Molinos SA ni Panela",
+    ciclos = cuerpo.get("cycles", [])
+    textos = [c.get("text") for c in ciclos]
+    camino = [e.get("name") for e in ciclos[0].get("elements", [])] if len(ciclos) == 1 else None
+    escenario("Ciclo: se informa el ciclo exacto, con su camino cerrado",
+              "un solo ciclo: Pan → Torta → Pan",
+              f"{len(ciclos)} ciclo(s): {textos}",
+              textos == ["Pan → Torta → Pan"] and camino == ["Pan", "Torta", "Pan"])
+
+    dependientes = [e.get("name") for e in cuerpo.get("blocked_by_cycle", [])]
+    escenario("Ciclo: quien solo depende del ciclo se informa aparte, sin acusarlo de formar el ciclo",
+              "blocked_by_cycle = ['Paquete regalo']; Paquete regalo no está en el ciclo",
+              f"blocked_by_cycle = {dependientes}; ciclo = {camino}",
+              dependientes == ["Paquete regalo"] and camino is not None and "Paquete regalo" not in camino)
+
+    escenario("Ciclo: el mensaje nombra el ciclo y no acusa a elementos ajenos",
+              "menciona 'Pan → Torta → Pan' y 'Paquete regalo'; no menciona Molinos SA, Panela ni Harina",
               mensaje,
-              ("Pan → Torta → Pan" in mensaje or "Torta → Pan → Torta" in mensaje)
-              and "Molinos SA" not in mensaje and "Panela" not in mensaje)
+              "Pan → Torta → Pan" in mensaje and "Paquete regalo" in mensaje
+              and "Molinos SA" not in mensaje and "Panela" not in mensaje and "Harina" not in mensaje)
 
 
 def main():
