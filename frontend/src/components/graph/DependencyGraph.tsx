@@ -7,7 +7,7 @@ import clsx from "clsx";
 import { Network } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TYPE_CLASSES, TYPE_LABEL, TYPE_ORDER } from "@/lib/business-language";
-import { buildFlow, computePositions, type ImpactHighlight } from "@/lib/graph-view";
+import { buildFlow, computePositions, type CycleHighlight, type ImpactHighlight } from "@/lib/graph-view";
 import type { GraphDTO } from "@/lib/types";
 import { ElementNode } from "./ElementNode";
 
@@ -17,6 +17,8 @@ interface Props {
   graph: GraphDTO;
   /** Feature 2: resalta el resultado de una consulta de impacto o de requisitos. */
   highlight?: ImpactHighlight;
+  /** Feature 3: resalta los elementos y dependencias de un ciclo (si no hay una consulta de impacto activa). */
+  cycle?: CycleHighlight;
   /** Si se entrega, un clic en un nodo llama a esta función en lugar de seleccionarlo dentro del grafo. */
   onSelectElement?: (elementId: string) => void;
   className?: string;
@@ -31,14 +33,14 @@ function LegendDot({ className, label }: Readonly<{ className: string; label: st
   );
 }
 
-export function DependencyGraph({ graph, highlight, onSelectElement, className }: Readonly<Props>) {
+export function DependencyGraph({ graph, highlight, cycle, onSelectElement, className }: Readonly<Props>) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // El layout solo se recalcula cuando cambia la estructura, no al seleccionar.
   const positions = useMemo(() => computePositions(graph), [graph]);
   const flow = useMemo(
-    () => buildFlow(graph, positions, selectedId, highlight),
-    [graph, positions, selectedId, highlight],
+    () => buildFlow(graph, positions, selectedId, highlight, cycle),
+    [graph, positions, selectedId, highlight, cycle],
   );
 
   const selected = graph.nodes.find((n) => n.id === selectedId);
@@ -93,6 +95,11 @@ export function DependencyGraph({ graph, highlight, onSelectElement, className }
               <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 border-t border-ink-100 pt-1.5 font-medium">
                 <LegendDot className="bg-danger" label="Punto de falla (Origen)" />
                 <LegendDot className="bg-proveedor" label="Afectado por nivel (N1, N2…)" />
+              </div>
+            )}
+            {!highlight && cycle && cycle.nodeIds.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 border-t border-ink-100 pt-1.5 font-medium">
+                <LegendDot className="bg-danger" label="Ciclo: se necesitan entre sí" />
               </div>
             )}
             {highlight?.mode === "requirements" && (

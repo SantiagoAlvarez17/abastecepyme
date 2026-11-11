@@ -13,7 +13,9 @@ import { CatalogGate } from "@/components/ui/CatalogGate";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useImpact } from "@/hooks/useImpact";
+import { useProductionOrder } from "@/hooks/useProductionOrder";
 import type { ImpactHighlight } from "@/lib/graph-view";
+import { cycleHighlightOf, parseCycleReport } from "@/lib/production-order";
 import type { ImpactMode } from "@/lib/types";
 
 function ProduccionContent() {
@@ -25,6 +27,10 @@ function ProduccionContent() {
   const [originId, setOriginId] = useState(initialElement);
   const [mode, setMode] = useState<ImpactMode>(initialMode);
   const { result, loading, error, run, clear } = useImpact();
+  const production = useProductionOrder();
+  // Si el orden no existe por un ciclo, el mapa resalta los elementos y dependencias que lo forman.
+  const cycleReport = useMemo(() => parseCycleReport(production.error), [production.error]);
+  const cycleHighlight = useMemo(() => (cycleReport ? cycleHighlightOf(cycleReport) : undefined), [cycleReport]);
 
   useEffect(() => {
     if (!initialElement) return;
@@ -112,6 +118,7 @@ function ProduccionContent() {
                     <DependencyGraph
                       graph={graph}
                       highlight={highlight}
+                      cycle={cycleHighlight}
                       onSelectElement={(id) => handleQuery(id, mode)}
                     />
                   </Card>
@@ -123,7 +130,7 @@ function ProduccionContent() {
                 )}
               </div>
 
-              <ProductionOrderPanel />
+              <ProductionOrderPanel production={production} cycleReport={cycleReport} />
             </div>
           )
         }
