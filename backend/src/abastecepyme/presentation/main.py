@@ -35,7 +35,8 @@ async def business_exception_handler(request: Request, exc: BusinessException):
         status_code=exc.status_code,
         content={
             "error_code": exc.error_code,
-            "message": exc.message
+            "message": exc.message,
+            **exc.extra
         }
     )
 

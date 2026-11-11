@@ -1,6 +1,6 @@
 from collections import deque
-from dataclasses import dataclass
-from typing import Dict, Iterable, List, Tuple
+from dataclasses import dataclass, field
+from typing import Dict, Iterable, List, Set, Tuple
 from uuid import UUID
 
 from abastecepyme.domain.entities.dependency import Dependency
@@ -23,15 +23,29 @@ class OrderingResult:
 
     # Etapas en orden de preparación. Los elementos de una misma etapa no dependen entre sí.
     stages: List[List[UUID]]
-    # Elementos que no se pudieron ordenar porque quedan detrás de un ciclo.
+    # Elementos que no se pudieron ordenar: los del ciclo y los que dependen de él.
     blocked: List[UUID]
-    # Ruta cerrada de un ciclo concreto; vacía si el grafo es acíclico.
-    cycle: List[UUID]
+    # Un ciclo representativo por cada grupo de elementos que se necesitan entre sí.
+    # Cada ciclo es un camino cerrado en el sentido de las aristas: [A, B, A] = "A necesita B y B necesita A".
+    cycles: List[List[UUID]] = field(default_factory=list)
+    # Todos los elementos que forman parte de algún ciclo (no solo los del ciclo representativo).
+    in_cycle: List[UUID] = field(default_factory=list)
 
     @property
     def is_valid(self) -> bool:
         """True si todos los elementos quedaron ordenados (no hay contradicciones)."""
         return not self.blocked
+
+    @property
+    def blocked_by_cycle(self) -> List[UUID]:
+        """Elementos bloqueados que NO forman parte de un ciclo: solo dependen de uno."""
+        members = set(self.in_cycle)
+        return [node_id for node_id in self.blocked if node_id not in members]
+
+    @property
+    def cycle(self) -> List[UUID]:
+        """Un ciclo concreto como camino cerrado (el primero de `cycles`); vacío si no hay ciclos."""
+        return self.cycles[0] if self.cycles else []
 
 
 class DependencyGraph:
@@ -185,9 +199,10 @@ class DependencyGraph:
         prepararlos, se descuenta un requisito pendiente a quienes los necesitan
         (índice `_required_by`). Los que llegan a cero forman la etapa siguiente.
 
-        Si al terminar quedan elementos con requisitos pendientes, esos elementos se
-        devuelven en `blocked`; `cycle` identifica una ruta cerrada concreta dentro de
-        ellos. NO se inventa un orden para los elementos bloqueados.
+        Si al terminar quedan elementos con requisitos pendientes, hay un ciclo: esos
+        elementos se devuelven en `blocked` y NO se inventa un orden para ellos. Para
+        explicar la contradicción se separan los que forman parte de un ciclo de los
+        que solo dependen de uno, y se reconstruye un ciclo concreto (`cycles`).
 
         Dentro de cada etapa los elementos se ordenan por tipo y nombre, para que el
         resultado sea siempre el mismo sin importar el orden en que se registraron.
@@ -210,60 +225,118 @@ class DependencyGraph:
             ready = next_ready
 
         blocked = sorted((n for n, count in pending.items() if count > 0), key=self._display_key)
-        cycle = self._find_cycle(blocked) if blocked else []
-        if blocked and not cycle:
+        cycles, in_cycle = self._find_cycles(set(blocked)) if blocked else ([], [])
+        if blocked and not cycles:
             raise RuntimeError("No se pudo reconstruir el ciclo que bloquea el orden.")
-        return OrderingResult(stages=stages, blocked=blocked, cycle=cycle)
+        return OrderingResult(stages=stages, blocked=blocked, cycles=cycles, in_cycle=in_cycle)
 
-    def _find_cycle(self, candidates: List[UUID]) -> List[UUID]:
-        """Encuentra iterativamente una ruta cerrada de ciclo entre los nodos bloqueados."""
-        candidate_set = set(candidates)
-        state: Dict[UUID, int] = {}
-        path: List[UUID] = []
-        path_positions: Dict[UUID, int] = {}
+    # ---------- Ciclos ----------
+    def _find_cycles(self, blocked: Set[UUID]) -> Tuple[List[List[UUID]], List[UUID]]:
+        """
+        Explica por qué `blocked` no se pudo ordenar.
 
-        for start in candidates:
-            if state.get(start, 0) != 0:
+        Todo elemento bloqueado tiene al menos un requisito también bloqueado, así que
+        dentro de `blocked` siempre hay ciclos. Se buscan los grupos de elementos que se
+        necesitan entre sí (componentes fuertemente conexos, algoritmo de Tarjan) y, por
+        cada grupo, se reconstruye el ciclo más corto que pasa por su primer elemento.
+        Los elementos bloqueados que quedan fuera de todo grupo solo dependen de un ciclo.
+        Costo: O(V + E) para los grupos y O(V + E) por cada ciclo reconstruido.
+        """
+        cycles: List[List[UUID]] = []
+        in_cycle: List[UUID] = []
+        for group in self._strongly_connected_groups(blocked):
+            # Un grupo de un solo elemento es un ciclo únicamente si se requiere a sí mismo.
+            if len(group) == 1 and group[0] not in self._requires[group[0]]:
                 continue
+            members = set(group)
+            start = min(group, key=self._display_key)
+            cycles.append(self._shortest_cycle_through(start, members))
+            in_cycle.extend(group)
+        cycles.sort(key=lambda cycle: self._display_key(cycle[0]))
+        in_cycle.sort(key=self._display_key)
+        return cycles, in_cycle
 
-            state[start] = 1
-            path_positions[start] = 0
-            path.append(start)
-            stack = [
-                (
-                    start,
-                    iter(node for node in self._requires[start] if node in candidate_set),
-                )
-            ]
+    def _neighbours_within(self, node_id: UUID, allowed: Set[UUID]) -> List[UUID]:
+        """Requisitos directos de `node_id` que están en `allowed`, en orden estable."""
+        return sorted((n for n in self._requires[node_id] if n in allowed), key=self._display_key)
 
-            while stack:
-                current, neighbours = stack[-1]
-                try:
-                    neighbour = next(neighbours)
-                except StopIteration:
-                    stack.pop()
-                    state[current] = 2
-                    path_positions.pop(current)
-                    path.pop()
+    def _strongly_connected_groups(self, nodes: Set[UUID]) -> List[List[UUID]]:
+        """Algoritmo de Tarjan, iterativo (sin recursión), sobre el subgrafo formado por `nodes`."""
+        number: Dict[UUID, int] = {}
+        low: Dict[UUID, int] = {}
+        on_stack: Set[UUID] = set()
+        stack: List[UUID] = []
+        groups: List[List[UUID]] = []
+        counter = 0
+
+        for root in sorted(nodes, key=self._display_key):
+            if root in number:
+                continue
+            number[root] = low[root] = counter
+            counter += 1
+            stack.append(root)
+            on_stack.add(root)
+            work = [(root, iter(self._neighbours_within(root, nodes)))]
+
+            while work:
+                node, neighbours = work[-1]
+                descended = False
+                for neighbour in neighbours:
+                    if neighbour not in number:
+                        number[neighbour] = low[neighbour] = counter
+                        counter += 1
+                        stack.append(neighbour)
+                        on_stack.add(neighbour)
+                        work.append((neighbour, iter(self._neighbours_within(neighbour, nodes))))
+                        descended = True
+                        break
+                    if neighbour in on_stack:
+                        low[node] = min(low[node], number[neighbour])
+                if descended:
                     continue
 
-                neighbour_state = state.get(neighbour, 0)
-                if neighbour_state == 1:
-                    return path[path_positions[neighbour]:] + [neighbour]
-                if neighbour_state == 2:
-                    continue
+                work.pop()
+                if work:
+                    parent = work[-1][0]
+                    low[parent] = min(low[parent], low[node])
+                if low[node] == number[node]:
+                    group: List[UUID] = []
+                    while True:
+                        member = stack.pop()
+                        on_stack.discard(member)
+                        group.append(member)
+                        if member == node:
+                            break
+                    groups.append(group)
+        return groups
 
-                state[neighbour] = 1
-                path_positions[neighbour] = len(path)
-                path.append(neighbour)
-                stack.append(
-                    (
-                        neighbour,
-                        iter(node for node in self._requires[neighbour] if node in candidate_set),
-                    )
-                )
+    def _shortest_cycle_through(self, start: UUID, members: Set[UUID]) -> List[UUID]:
+        """
+        Ciclo más corto que pasa por `start`, como camino cerrado [start, ..., start]
+        en el sentido de las aristas. Recorrido en anchura dentro de `members`.
+        """
+        parent: Dict[UUID, UUID] = {}
+        queue = deque()
+        for neighbour in self._neighbours_within(start, members):
+            parent[neighbour] = start
+            queue.append(neighbour)
 
-        return []
+        while queue:
+            current = queue.popleft()
+            if current == start:
+                break
+            for neighbour in self._neighbours_within(current, members):
+                if neighbour not in parent:
+                    parent[neighbour] = current
+                    queue.append(neighbour)
+
+        middle: List[UUID] = []
+        node = parent[start]
+        while node != start:
+            middle.append(node)
+            node = parent[node]
+        middle.reverse()
+        return [start, *middle, start]
 
     def _display_key(self, node_id: UUID) -> Tuple[int, str]:
         """Clave de orden estable: primero por tipo (proveedor, insumo, producto) y luego por nombre."""

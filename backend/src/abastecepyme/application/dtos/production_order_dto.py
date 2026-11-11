@@ -20,3 +20,24 @@ class ProductionOrderResponseDTO(BaseModel):
     stage_count: int
     summary: str
     steps: List[ProductionStepDTO]  # el orden de trabajo, de la primera a la última preparación
+
+
+# ---------- Respuesta de error cuando hay un ciclo (409 ERR_CYCLE_DETECTED) ----------
+class CycleElementDTO(BaseModel):
+    id: UUID
+    name: str
+    element_type: ElementType
+
+
+class CycleDTO(BaseModel):
+    # Camino cerrado en el sentido de las aristas: el primer elemento se repite al final.
+    # [Pan, Masa madre, Pan] = "para producir Pan necesito Masa madre y para producir Masa madre necesito Pan"
+    elements: List[CycleElementDTO]
+    text: str  # el mismo camino como texto: "Pan → Masa madre → Pan"
+
+
+class CycleErrorResponseDTO(BaseModel):
+    error_code: str  # ERR_CYCLE_DETECTED
+    message: str
+    cycles: List[CycleDTO]  # un ciclo representativo por cada grupo de elementos que se necesitan entre sí
+    blocked_by_cycle: List[CycleElementDTO]  # no forman parte del ciclo, pero dependen de él
