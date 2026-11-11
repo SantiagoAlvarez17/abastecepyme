@@ -5,7 +5,7 @@ import type { ElementDTO, GraphDTO, ImpactMode } from "./types";
 export const NODE_WIDTH = 224;
 export const NODE_HEIGHT = 60;
 
-export type NodeState = "normal" | "selected" | "related" | "dimmed" | "origin" | "affected";
+export type NodeState = "normal" | "selected" | "related" | "dimmed" | "origin" | "affected" | "cycle";
 
 export type ElementNodeData = {
   element: ElementDTO;
@@ -25,6 +25,12 @@ export interface ImpactHighlight {
   originId: string;
   affectedIds: string[];
   levelById?: Record<string, number>;
+}
+
+/** Feature 3: elementos y dependencias que forman un ciclo (la contradicción que impide ordenar). */
+export interface CycleHighlight {
+  nodeIds: string[];
+  edgeKeys: string[]; // "idRequiere->idRequerido"
 }
 
 const COLORS = { normal: "#aab3c5", dim: "#e8ebf1", focus: "#2557d6", impact: "#dc2626" };
@@ -52,14 +58,19 @@ export function buildFlow(
   positions: Map<string, { x: number; y: number }>,
   selectedId: string | null,
   highlight?: ImpactHighlight,
+  cycle?: CycleHighlight,
 ): { nodes: ElementFlowNode[]; edges: Edge[] } {
   const focus = new Set<string>();
-  let view: "none" | "selection" | "impact" = "none";
+  const cycleNodes = new Set(cycle?.nodeIds);
+  const cycleEdges = new Set(cycle?.edgeKeys);
+  let view: "none" | "selection" | "impact" | "cycle" = "none";
 
   if (highlight) {
     view = "impact";
     focus.add(highlight.originId);
     for (const id of highlight.affectedIds) focus.add(id);
+  } else if (cycle && cycleNodes.size > 0) {
+    view = "cycle";
   } else if (selectedId) {
     view = "selection";
     focus.add(selectedId);
@@ -73,6 +84,7 @@ export function buildFlow(
 
   const stateOf = (id: string): NodeState => {
     if (view === "none") return "normal";
+    if (view === "cycle") return cycleNodes.has(id) ? "cycle" : "dimmed";
     if (view === "impact") {
       if (id === highlight?.originId) return isFailure ? "origin" : "selected";
       if (focus.has(id)) return isFailure ? "affected" : "related";
@@ -101,10 +113,18 @@ export function buildFlow(
     const on =
       view === "impact"
         ? focus.has(source) && focus.has(target)
-        : view === "selection"
-          ? source === selectedId || target === selectedId
-          : false;
-    const color = on ? (isFailure ? COLORS.impact : COLORS.focus) : view === "none" ? COLORS.normal : COLORS.dim;
+        : view === "cycle"
+          ? cycleEdges.has(`${source}->${target}`)
+          : view === "selection"
+            ? source === selectedId || target === selectedId
+            : false;
+    const color = on
+      ? isFailure || view === "cycle"
+        ? COLORS.impact
+        : COLORS.focus
+      : view === "none"
+        ? COLORS.normal
+        : COLORS.dim;
 
     return {
       id: `${source}->${target}`,

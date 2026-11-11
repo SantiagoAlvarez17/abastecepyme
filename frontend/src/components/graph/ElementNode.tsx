@@ -12,6 +12,7 @@ const STATE_CLASSES: Record<NodeState, string> = {
   dimmed: "border-ink-100 bg-white opacity-35",
   origin: "border-danger bg-danger-soft ring-2 ring-danger/40",
   affected: "border-proveedor bg-proveedor-soft ring-1 ring-proveedor/30",
+  cycle: "border-danger bg-danger-soft ring-2 ring-danger/40",
 };
 
 export function ElementNode({ data }: NodeProps<ElementFlowNode>) {
@@ -21,17 +22,19 @@ export function ElementNode({ data }: NodeProps<ElementFlowNode>) {
   const badge =
     state === "origin"
       ? { text: "Falla", cls: "bg-danger text-white" }
-      : state === "selected" && mode === "requirements"
-        ? { text: "Origen", cls: "bg-brand-600 text-white" }
-        : typeof level === "number"
-          ? {
-              text: `Nivel ${level}`,
-              cls:
-                mode === "impact"
-                  ? "bg-proveedor text-white"
-                  : "bg-brand-600 text-white",
-            }
-          : null;
+      : state === "cycle"
+        ? { text: "Ciclo", cls: "bg-danger text-white" }
+        : state === "selected" && mode === "requirements"
+          ? { text: "Origen", cls: "bg-brand-600 text-white" }
+          : typeof level === "number"
+            ? {
+                text: `Nivel ${level}`,
+                cls:
+                  mode === "impact"
+                    ? "bg-proveedor text-white"
+                    : "bg-brand-600 text-white",
+              }
+            : null;
 
   return (
     <div
