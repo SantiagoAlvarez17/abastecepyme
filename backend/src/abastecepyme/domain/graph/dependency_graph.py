@@ -18,6 +18,16 @@ class Visit:
 
 
 @dataclass(frozen=True)
+class MultiSourceVisit:
+    """Un elemento alcanzado desde una de varias fuentes iniciales."""
+
+    node_id: UUID
+    level: int
+    via_id: UUID
+    source_id: UUID
+
+
+@dataclass(frozen=True)
 class OrderingResult:
     """Resultado de ordenar el grafo según sus requisitos."""
 
@@ -169,6 +179,44 @@ class DependencyGraph:
                 visited.add(neighbour)
                 result.append(Visit(node_id=neighbour, level=level + 1, via_id=current))
                 queue.append((neighbour, level + 1))
+
+        return result
+
+    def reach_many(
+        self, sources: Iterable[UUID], *, reverse: bool = False
+    ) -> List[MultiSourceVisit]:
+        """
+        Recorre una vez el grafo desde varias fuentes iniciales.
+
+        Cada nodo alcanzado aparece una sola vez, asociado a la fuente más cercana
+        según el orden de inserción. Inicializar y recorrer la cola cuesta O(V + E).
+        """
+        source_ids = list(dict.fromkeys(sources))
+        if not source_ids:
+            raise ValueError("Se requiere al menos un elemento de origen.")
+        if any(source_id not in self._nodes for source_id in source_ids):
+            raise ValueError("Todos los elementos de origen deben existir en el grafo.")
+
+        index = self._required_by if reverse else self._requires
+        visited = set(source_ids)
+        queue = deque((source_id, 0, source_id) for source_id in source_ids)
+        result: List[MultiSourceVisit] = []
+
+        while queue:
+            current, level, source_id = queue.popleft()
+            for neighbour in index[current]:
+                if neighbour in visited:
+                    continue
+                visited.add(neighbour)
+                result.append(
+                    MultiSourceVisit(
+                        node_id=neighbour,
+                        level=level + 1,
+                        via_id=current,
+                        source_id=source_id,
+                    )
+                )
+                queue.append((neighbour, level + 1, source_id))
 
         return result
 

@@ -18,8 +18,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard } from "@/components/ui/StatCard";
 import { useCatalogContext } from "@/context/CatalogContext";
-import { useImpact } from "@/hooks/useImpact";
 import { useProductionOrder } from "@/hooks/useProductionOrder";
+import { useUnavailabilitySimulation } from "@/hooks/useUnavailabilitySimulation";
 import { TYPE_LABEL_PLURAL, TYPE_ORDER } from "@/lib/business-language";
 import { impactHighlightOf } from "@/lib/graph-view";
 import { cycleHighlightOf, parseCycleReport } from "@/lib/production-order";
@@ -39,16 +39,15 @@ function ProductionStep({ graph }: Readonly<{ graph: GraphDTO }>) {
 }
 
 function Dashboard({ graph, summary }: Readonly<{ graph: GraphDTO; summary: DashboardSummaryDTO }>) {
-  const impact = useImpact();
-  const { run, clear, result } = impact;
-  const [simulatedId, setSimulatedId] = useState("");
+  const simulation = useUnavailabilitySimulation();
+  const { run, clear, result } = simulation;
+  const [simulatedIds, setSimulatedIds] = useState<string[]>([]);
 
-  // The simulation is derived from (catalog, selected element): picking another element or
-  // loading a dependency that changes the consequences both re-run the backend query.
+  // Keep the result synchronized with the selected sources and current backend catalog.
   useEffect(() => {
-    if (simulatedId) void run(simulatedId, "impact");
+    if (simulatedIds.length > 0) void run(simulatedIds);
     else clear();
-  }, [graph, simulatedId, run, clear]);
+  }, [graph, simulatedIds, run, clear]);
 
   // The active simulation is the relevant query; otherwise the map points at the cycle, if any.
   const highlight = useMemo(() => (result ? impactHighlightOf(result) : undefined), [result]);
@@ -91,10 +90,10 @@ function Dashboard({ graph, summary }: Readonly<{ graph: GraphDTO; summary: Dash
           <StepSection step={2} title="Simular una indisponibilidad">
             <SimulationCard
               graph={graph}
-              selectedId={simulatedId}
-              impact={impact}
-              onSimulate={setSimulatedId}
-              onClear={() => setSimulatedId("")}
+              selectedIds={simulatedIds}
+              simulation={simulation}
+              onSimulate={setSimulatedIds}
+              onClear={() => setSimulatedIds([])}
             />
           </StepSection>
         </div>
@@ -111,13 +110,18 @@ function Dashboard({ graph, summary }: Readonly<{ graph: GraphDTO; summary: Dash
             }
             icon={Network}
           >
-            <DependencyGraph graph={graph} highlight={highlight} cycle={cycle} onSelectElement={setSimulatedId} />
+            <DependencyGraph
+              graph={graph}
+              highlight={highlight}
+              cycle={cycle}
+              onSelectElement={(elementId) => setSimulatedIds([elementId])}
+            />
           </Card>
           <CriticalPointsCard
             points={summary.critical_points}
             totalProducts={summary.by_type.producto}
-            activeId={simulatedId || null}
-            onSimulate={setSimulatedId}
+            activeId={simulatedIds[0] ?? null}
+            onSimulate={(elementId) => setSimulatedIds([elementId])}
           />
         </div>
       </div>

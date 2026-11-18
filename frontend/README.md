@@ -3,7 +3,8 @@
 Interfaz web empresarial para **AbastecePyme**, organizada por roles de negocio:
 
 - **Compras (`/compras`):** registro validado de elementos y dependencias, KPIs del catálogo, directorio filtrable con estado en red (`Conectado` / `Aislado`), diálogo de inspección y mapa interactivo de dependencias.
-- **Producción (`/produccion`):** simulación de indisponibilidad (`mode=impact`) y consulta de requisitos (`mode=requirements`), métricas de alcance, desglose por niveles con ruta completa y frase de negocio, y resaltado en tiempo real sobre el grafo interactivo (React Flow + Dagre).
+- **Tablero (`/tablero`):** simulación de indisponibilidad simultánea de varios elementos, resumen de productos detenidos o disponibles, niveles con rutas y fuentes, y resaltado de múltiples orígenes sobre el grafo. Los datos y cálculos se obtienen del backend mediante un BFS multifuente O(V + E).
+- **Producción (`/produccion`):** consulta individual de impacto y requisitos por niveles con sus rutas completas.
 
 ## Requisitos
 - Node.js 20+

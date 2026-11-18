@@ -160,4 +160,17 @@ La guía dice que el código que no se puede explicar, trazar y verificar cuenta
 **Pendientes del equipo antes de entregar F4:**
 - Hacer en papel la traza manual del ranking de puntos críticos con la panadería de ejemplo y compararla con `GET /dashboard/summary`.
 - Juan debe ampliar `aceptacion_f4.py` con los escenarios de las partes 2 y 3 y guardar la salida final como evidencia.
-- Decidir en equipo si se actualiza Next.js por la advertencia de seguridad.
+- Verificar en CI la actualización de Next.js 16.4.3 a 16.4.6 y revisar las vulnerabilidades moderadas restantes de npm.
+
+## Sesión 8 — Feature 4, parte 2: indisponibilidad múltiple (Jorge)
+
+- **Herramienta:** Copilot SDK en VS Code.
+- **Fecha:** 2026-11-18
+- **Base de integración:** `origin/feature/datos-ejemplo` en `3891f4a`, que ya contiene el tablero de la parte 1 mediante el PR #11.
+
+| Decisión o pieza | Herramienta/objetivo de IA | Propuesta recibida | Acepté o rechacé y por qué | Cómo la verifiqué |
+|---|---|---|---|---|
+| Recorrido de varias fuentes | Implementar el algoritmo que pide la parte 2 | Añadir `DependencyGraph.reach_many` con todas las fallas en la cola inicial y recorrer `_required_by` una sola vez; asignar cada elemento alcanzado a su fuente más cercana y nivel mínimo | Acepté: evita K recorridos separados y conserva la dirección de negocio de F2 | Prueba del grafo con dos fuentes y un producto compartido; inspección del recorrido BFS O(V + E) |
+| Endpoint de simulación | Exponer el resultado completo y validar entrada | `POST /simulations/unavailability` devuelve fuentes, niveles, rutas, productos detenidos y productos restantes; lista vacía, UUID inválido o repetido responde 422, ID inexistente 404 | Acepté porque separa el cálculo del frontend y entrega categorías que producción necesita para decidir | `test_api_simulation.py`: escenario multifuente y cuatro errores; suite completa de backend: 96 pasaron |
+| Integración visual | Adaptar el paso 2 del tablero ya integrado, no duplicarlo en Producción | Selector múltiple en `dashboard/SimulationCard.tsx`; el mapa usa `impactHighlightOf` extendido para marcar todos los orígenes y los alcanzados. Al cambiar el catálogo se vuelve a consultar la API | Acepté: sigue la división de trabajo de F4 y mantiene al backend como fuente de datos | ESLint y TypeScript pasaron; build compiló las rutas `/tablero` y `/produccion` antes de actualizar Next |
+| Actualización por seguridad | Resolver el bloqueo de `next build` reportado por Next.js | Actualizar Next.js y `eslint-config-next` de 16.4.3 a 16.4.6 y configurar `experimental.agentUpgrade = "security"` | Acepté tras autorización del usuario; la actualización se mantiene en esta rama para que el build no quede bloqueado | `next --version` informó 16.4.6; falta repetir build y linters con la versión nueva |
