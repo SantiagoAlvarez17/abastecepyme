@@ -14,7 +14,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useImpact } from "@/hooks/useImpact";
 import { useProductionOrder } from "@/hooks/useProductionOrder";
-import type { ImpactHighlight } from "@/lib/graph-view";
+import { impactHighlightOf } from "@/lib/graph-view";
 import { cycleHighlightOf, parseCycleReport } from "@/lib/production-order";
 import type { ImpactMode } from "@/lib/types";
 
@@ -47,21 +47,7 @@ function ProduccionContent() {
     else clear();
   }
 
-  const highlight = useMemo<ImpactHighlight | undefined>(() => {
-    if (!result) return undefined;
-    const levelById: Record<string, number> = {};
-    for (const lv of result.levels) {
-      for (const el of lv.elements) {
-        levelById[el.id] = el.level;
-      }
-    }
-    return {
-      mode: result.mode,
-      originId: result.origin.id,
-      affectedIds: result.levels.flatMap((l) => l.elements.map((e) => e.id)),
-      levelById,
-    };
-  }, [result]);
+  const highlight = useMemo(() => (result ? impactHighlightOf(result) : undefined), [result]);
 
   const showLevels = result !== null && result.levels.length > 0;
 

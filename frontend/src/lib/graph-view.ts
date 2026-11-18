@@ -1,6 +1,6 @@
 import dagre from "@dagrejs/dagre";
 import { MarkerType, type Edge, type Node } from "@xyflow/react";
-import type { ElementDTO, GraphDTO, ImpactMode } from "./types";
+import type { ElementDTO, GraphDTO, ImpactMode, ImpactResponseDTO } from "./types";
 
 export const NODE_WIDTH = 224;
 export const NODE_HEIGHT = 60;
@@ -138,4 +138,18 @@ export function buildFlow(
   });
 
   return { nodes, edges };
+}
+
+/** Turns an impact/requirements result into what the map highlights (origin, reached elements, levels). */
+export function impactHighlightOf(result: ImpactResponseDTO): ImpactHighlight {
+  const levelById: Record<string, number> = {};
+  for (const level of result.levels) {
+    for (const element of level.elements) levelById[element.id] = element.level;
+  }
+  return {
+    mode: result.mode,
+    originId: result.origin.id,
+    affectedIds: Object.keys(levelById),
+    levelById,
+  };
 }

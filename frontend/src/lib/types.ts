@@ -101,3 +101,30 @@ export interface CycleErrorBody {
   cycles: CycleDTO[];
   blocked_by_cycle: CycleElementDTO[]; // no forman parte del ciclo, pero dependen de él
 }
+
+
+// ---------- Feature 4: supply dashboard ----------
+export type ElementRefDTO = CycleElementDTO;
+
+export interface CriticalPointDTO extends ElementRefDTO {
+  affected_products: number; // products that stop if this element fails
+  affected_total: number;    // every element reached by the failure
+  products: string[];
+}
+
+export type ProductionStatus = "empty" | "valid" | "cycle";
+
+export interface DashboardSummaryDTO {
+  total_elements: number;
+  total_dependencies: number;
+  by_type: Record<ElementType, number>;
+  isolated: ElementRefDTO[];
+  production: {
+    status: ProductionStatus;
+    message: string;
+    stage_count: number;
+    blocked_count: number;
+    cycles: CycleDTO[];
+  };
+  critical_points: CriticalPointDTO[];
+}
