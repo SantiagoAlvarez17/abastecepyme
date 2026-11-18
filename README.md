@@ -5,7 +5,7 @@ Microproducto para una pyme que fabrica productos sencillos. Le permite registra
 **Feature 1 — Catálogo de dependencias:** crear y listar elementos, registrar dependencias válidas, rechazar duplicados y datos mal formados, y ver la red mediante la API y la interfaz.
 **Feature 2 — Análisis de impacto:** recorrer la cadena relacionada con un proveedor, insumo o producto (por niveles, con ruta y razón de negocio), tanto mediante la API como desde la interfaz con resaltado en el grafo.
 **Feature 3 — Orden y ciclos de producción:** genera un orden de preparación válido (por etapas, de proveedores a productos finales) o, si las dependencias se contradicen, avisa con el **ciclo exacto** y no entrega ningún orden.
-**Feature 4 — Tablero de abastecimiento:** integra catálogo, impacto y orden/alerta de ciclo en una sola vista (`/tablero`) con el flujo de la demo: cargar una dependencia, simular una indisponibilidad y ver un orden válido o la alerta del ciclo.
+**Feature 4 — Tablero de abastecimiento:** integra catálogo, impacto y orden/alerta de ciclo en una sola vista (`/tablero`), incluida la simulación multifuente para identificar productos detenidos y productos que siguen disponibles.
 
 ## Estructura
 | Carpeta | Contenido |
@@ -110,7 +110,7 @@ El `409` explica la contradicción, no solo la nombra:
 
 La interfaz abre en `/tablero` (vista de *Gerencia de operaciones*), organizada como el criterio de éxito del cliente:
 1. **Cargar una dependencia** (mismo formulario y validaciones de Compras).
-2. **Simular una indisponibilidad**: elegir el elemento, hacer clic en un nodo del mapa o pulsar *Simular falla* en el ranking de puntos críticos. El mapa resalta el punto de falla y lo afectado por nivel, y atenúa el resto.
+2. **Simular una indisponibilidad**: elegir uno o varios elementos en el paso de simulación, hacer clic en un nodo del mapa o pulsar *Simular falla* en el ranking de puntos críticos. El tablero consulta la API, separa productos detenidos de disponibles y resalta todas las fuentes y elementos afectados por nivel.
 3. **Organizar la producción**: el orden por etapas se recalcula solo cada vez que cambia el catálogo; si hay un ciclo, el tablero muestra la alerta con el camino exacto y lo resalta en el mapa.
 
 Los datos salen de `GET /dashboard/summary` (ver [backend/README.md](backend/README.md)), que construye el grafo **una vez** y obtiene de él los totales, los aislados, el estado del orden y los **puntos críticos**: proveedores e insumos ordenados por cuántos productos se detienen si fallan, con el mismo BFS inverso de F2. La interfaz no calcula nada del grafo: antes la cabecera contaba los elementos aislados en el navegador recorriendo todas las aristas por cada nodo (O(N·E)); ahora usa el dato del backend.

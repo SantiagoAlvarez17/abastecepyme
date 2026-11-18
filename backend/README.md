@@ -1,6 +1,6 @@
 # AbastecePyme Backend
 
-API REST de AbastecePyme. Incluye el catálogo de dependencias (Feature 1), el análisis de impacto y requisitos (Feature 2) y el orden de preparación con detección de ciclos (Feature 3). Está organizada con Clean Architecture (FastAPI + SQLAlchemy).
+API REST de AbastecePyme. Incluye el catálogo de dependencias (Feature 1), el análisis de impacto y requisitos (Feature 2), el orden de preparación con detección de ciclos (Feature 3) y la simulación de indisponibilidad múltiple (Feature 4). Está organizada con Clean Architecture (FastAPI + SQLAlchemy).
 
 ## Requisitos
 - Python 3.12 o superior
@@ -32,6 +32,9 @@ La documentación interactiva queda en http://localhost:8000/docs
 | GET | `/impact/{element_id}?mode=requirements` | Analiza qué necesita el elemento para producirse (`mode=requirements`) |
 | GET | `/production-order` | Orden de preparación válido de todo el catálogo, o `409` con el ciclo exacto si las dependencias se contradicen (Feature 3) |
 | GET | `/dashboard/summary?limit=5` | Resumen del tablero (Feature 4): totales, elementos aislados, estado del orden (`valid`, `cycle` o `empty`) y puntos críticos de abastecimiento |
+| POST | `/simulations/unavailability` | Simula la indisponibilidad de varios elementos y devuelve afectados, productos detenidos y productos disponibles (Feature 4) |
+
+`POST /simulations/unavailability` recibe `{"element_ids": ["<uuid>", "..."]}`. Recorre una sola vez el grafo mediante BFS multifuente y el índice `_required_by`, con costo O(V + E); cada elemento afectado aparece una vez con su nivel, ruta y fuente más cercana. La respuesta incluye `stopped_products` (productos seleccionados o alcanzados por la interrupción) y `available_products` (los demás productos del catálogo). Una lista vacía, UUID mal formado o IDs repetidos responde `422 ERR_VALIDATION`; si alguno no existe o está inactivo, responde `404 ERR_ELEMENT_NOT_FOUND`.
 
 `GET /impact/{element_id}` utiliza el recorrido BFS propio `DependencyGraph.reach` y devuelve:
 - `mode`: `"impact"` o `"requirements"`

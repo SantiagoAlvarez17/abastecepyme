@@ -60,6 +60,32 @@ export interface ImpactResponseDTO {
   levels: ImpactLevelDTO[];
 }
 
+// ---------- Feature 4: simulación de indisponibilidad múltiple ----------
+export interface SimulatedImpactElementDTO {
+  id: string;
+  name: string;
+  element_type: ElementType;
+  level: number;
+  via_id: string;
+  source_id: string;
+  path: string[];
+}
+
+export interface SimulatedImpactLevelDTO {
+  level: number;
+  elements: SimulatedImpactElementDTO[];
+}
+
+export interface UnavailabilitySimulationDTO {
+  sources: ElementDTO[];
+  affected_count: number;
+  max_level: number;
+  levels: SimulatedImpactLevelDTO[];
+  stopped_products: ElementDTO[];
+  available_products: ElementDTO[];
+  summary: string;
+}
+
 
 // ---------- Feature 3: orden de preparación ----------
 export interface ProductionStepDTO {

@@ -125,6 +125,33 @@ def test_reachable_from_inverso_encuentra_cadena_de_impacto_sin_repetir_ciclos()
     ]
 
 
+def test_reach_many_hace_un_bfs_inverso_y_no_duplica_alcanzables():
+    proveedor_a = el("Proveedor A", ElementType.PROVEEDOR)
+    proveedor_b = el("Proveedor B", ElementType.PROVEEDOR)
+    harina = el("Harina", ElementType.INSUMO)
+    leche = el("Leche", ElementType.INSUMO)
+    pan = el("Pan")
+    graph = DependencyGraph.build(
+        [proveedor_a, proveedor_b, harina, leche, pan],
+        [
+            dep(harina, proveedor_a),
+            dep(leche, proveedor_b),
+            dep(pan, harina),
+            dep(pan, leche),
+        ],
+    )
+
+    visits = graph.reach_many([proveedor_a.id, proveedor_b.id], reverse=True)
+
+    assert [(visit.node_id, visit.level) for visit in visits] == [
+        (harina.id, 1),
+        (leche.id, 1),
+        (pan.id, 2),
+    ]
+    assert len({visit.node_id for visit in visits}) == len(visits)
+    assert visits[-1].source_id == proveedor_a.id
+
+
 def test_would_create_cycle():
     a, b, c = el("A"), el("B"), el("C")
     graph = DependencyGraph.build([a, b, c], [dep(a, b), dep(b, c)])

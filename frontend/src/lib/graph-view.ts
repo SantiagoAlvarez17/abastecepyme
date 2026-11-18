@@ -1,6 +1,12 @@
 import dagre from "@dagrejs/dagre";
 import { MarkerType, type Edge, type Node } from "@xyflow/react";
-import type { ElementDTO, GraphDTO, ImpactMode, ImpactResponseDTO } from "./types";
+import type {
+  ElementDTO,
+  GraphDTO,
+  ImpactMode,
+  ImpactResponseDTO,
+  UnavailabilitySimulationDTO,
+} from "./types";
 
 export const NODE_WIDTH = 224;
 export const NODE_HEIGHT = 60;
@@ -23,6 +29,7 @@ export type ElementFlowNode = Node<ElementNodeData, "element">;
 export interface ImpactHighlight {
   mode: ImpactMode;
   originId: string;
+  originIds?: string[];
   affectedIds: string[];
   levelById?: Record<string, number>;
 }
@@ -61,13 +68,16 @@ export function buildFlow(
   cycle?: CycleHighlight,
 ): { nodes: ElementFlowNode[]; edges: Edge[] } {
   const focus = new Set<string>();
+  const origins = new Set<string>();
   const cycleNodes = new Set(cycle?.nodeIds);
   const cycleEdges = new Set(cycle?.edgeKeys);
   let view: "none" | "selection" | "impact" | "cycle" = "none";
 
   if (highlight) {
     view = "impact";
-    focus.add(highlight.originId);
+    origins.add(highlight.originId);
+    for (const id of highlight.originIds ?? []) origins.add(id);
+    for (const id of origins) focus.add(id);
     for (const id of highlight.affectedIds) focus.add(id);
   } else if (cycle && cycleNodes.size > 0) {
     view = "cycle";
@@ -86,7 +96,7 @@ export function buildFlow(
     if (view === "none") return "normal";
     if (view === "cycle") return cycleNodes.has(id) ? "cycle" : "dimmed";
     if (view === "impact") {
-      if (id === highlight?.originId) return isFailure ? "origin" : "selected";
+      if (origins.has(id)) return isFailure ? "origin" : "selected";
       if (focus.has(id)) return isFailure ? "affected" : "related";
       return "dimmed";
     }
@@ -141,10 +151,22 @@ export function buildFlow(
 }
 
 /** Turns an impact/requirements result into what the map highlights (origin, reached elements, levels). */
-export function impactHighlightOf(result: ImpactResponseDTO): ImpactHighlight {
+export function impactHighlightOf(
+  result: ImpactResponseDTO | UnavailabilitySimulationDTO,
+): ImpactHighlight {
   const levelById: Record<string, number> = {};
   for (const level of result.levels) {
     for (const element of level.elements) levelById[element.id] = element.level;
+  }
+  if ("sources" in result) {
+    const originIds = result.sources.map((source) => source.id);
+    return {
+      mode: "impact",
+      originId: originIds[0],
+      originIds,
+      affectedIds: Object.keys(levelById),
+      levelById,
+    };
   }
   return {
     mode: result.mode,
