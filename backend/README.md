@@ -31,6 +31,7 @@ La documentación interactiva queda en http://localhost:8000/docs
 | GET | `/impact/{element_id}` | Analiza qué se afecta si el elemento no está disponible (`mode=impact`, por defecto) |
 | GET | `/impact/{element_id}?mode=requirements` | Analiza qué necesita el elemento para producirse (`mode=requirements`) |
 | GET | `/production-order` | Orden de preparación válido de todo el catálogo, o `409` con el ciclo exacto si las dependencias se contradicen (Feature 3) |
+| GET | `/dashboard/summary?limit=5` | Resumen del tablero (Feature 4): totales, elementos aislados, estado del orden (`valid`, `cycle` o `empty`) y puntos críticos de abastecimiento |
 
 `GET /impact/{element_id}` utiliza el recorrido BFS propio `DependencyGraph.reach` y devuelve:
 - `mode`: `"impact"` o `"requirements"`
@@ -54,6 +55,15 @@ Si las dependencias forman un ciclo no existe un orden válido: responde `409 ER
 - `message`: texto legible que empieza por la ruta cerrada (`Ciclo detectado: Masa madre → Pan → Masa madre.`) y, aparte, los elementos que solo dependen del ciclo. Con varios ciclos empieza por `Ciclos detectados (2): 1) ... 2) ...`.
 - `cycles`: lista de ciclos. Cada uno trae `text` y `elements` (`id`, `name`, `element_type`), como camino cerrado en el sentido de las dependencias: el primer elemento se repite al final. Hay un ciclo por cada grupo de elementos que se necesitan entre sí.
 - `blocked_by_cycle`: elementos que no forman parte de ningún ciclo, pero quedan sin orden porque dependen de uno.
+
+`GET /dashboard/summary` integra las tres features anteriores sobre **una sola construcción del grafo**, para que el tablero nunca muestre datos contradictorios entre sí:
+- `total_elements`, `total_dependencies` y `by_type` (siempre con las tres claves, aunque valgan 0)
+- `isolated`: elementos sin dependencias en ningún sentido (`DependencyGraph.is_isolated`, O(1) por nodo gracias a las dos listas de adyacencia)
+- `production`: `status` (`empty`, `valid` o `cycle`), `message`, `stage_count`, `blocked_count` y `cycles` (el mismo formato que el `409` de `/production-order`)
+- `critical_points`: proveedores e insumos cuya falla alcanza al menos un elemento, ordenados por productos detenidos, luego por elementos alcanzados y luego por tipo y nombre. Cada uno trae `affected_products`, `affected_total` y `products`. Reutiliza el BFS inverso de F2 (`reach(..., reverse=True)`): costo O(K·(V+E)), con K = proveedores + insumos
+- `limit` (1 a 50, por defecto 5) recorta el ranking; un valor fuera de rango o no numérico responde `422 ERR_VALIDATION`
+
+A diferencia de `/production-order`, un ciclo **no** es un error aquí: responde `200` con `production.status = "cycle"`, porque el tablero debe seguir funcionando justamente cuando el catálogo es contradictorio.
 
 Los errores siempre responden con `{error_code, message}`:
 
@@ -134,6 +144,11 @@ Se puede ejecutar varias veces: lo que ya existe no se duplica. No lo use sobre 
    python scripts/aceptacion_f3.py
    ```
    El script prueba un caso acíclico y uno cíclico, y termina registrando un ciclo, así que la base debe borrarse antes de volver a ejecutarlo.
+5. Para probar el tablero de la Feature 4, borre `aceptacion.db`, reinicie la API y ejecute:
+   ```bash
+   python scripts/aceptacion_f4.py
+   ```
+   Reproduce la demo del cliente: catálogo vacío, cargar una dependencia, cadena válida con puntos críticos, simular la indisponibilidad de un proveedor, orden válido, elemento inexistente, datos inválidos y ciclo (alerta en el tablero y `409` en el orden). También termina registrando un ciclo.
 
 ## Pruebas unitarias y de integración (`pytest`)
 `tests/` contiene pruebas del grafo (incluidos el orden de preparación y el reporte de ciclos, con pruebas de propiedad sobre grafos aleatorios), de los casos de uso con repositorios en memoria y de los endpoints HTTP:

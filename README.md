@@ -5,11 +5,12 @@ Microproducto para una pyme que fabrica productos sencillos. Le permite registra
 **Feature 1 — Catálogo de dependencias:** crear y listar elementos, registrar dependencias válidas, rechazar duplicados y datos mal formados, y ver la red mediante la API y la interfaz.
 **Feature 2 — Análisis de impacto:** recorrer la cadena relacionada con un proveedor, insumo o producto (por niveles, con ruta y razón de negocio), tanto mediante la API como desde la interfaz con resaltado en el grafo.
 **Feature 3 — Orden y ciclos de producción:** genera un orden de preparación válido (por etapas, de proveedores a productos finales) o, si las dependencias se contradicen, avisa con el **ciclo exacto** y no entrega ningún orden.
+**Feature 4 — Tablero de abastecimiento:** integra catálogo, impacto y orden/alerta de ciclo en una sola vista (`/tablero`) con el flujo de la demo: cargar una dependencia, simular una indisponibilidad y ver un orden válido o la alerta del ciclo.
 
 ## Estructura
 | Carpeta | Contenido |
 |---|---|
-| `backend/` | API REST en Python (FastAPI). Incluye el grafo propio y los scripts de aceptación (`aceptacion_f1.py`, `aceptacion_f2.py` y `aceptacion_f3.py`). Ver [backend/README.md](backend/README.md) |
+| `backend/` | API REST en Python (FastAPI). Incluye el grafo propio y los scripts de aceptación (`aceptacion_f1.py` a `aceptacion_f4.py`). Ver [backend/README.md](backend/README.md) |
 | `frontend/` | Interfaz web empresarial en Next.js + Tailwind + React Flow con vistas por rol (**Compras** y **Producción**). Ver [frontend/README.md](frontend/README.md) |
 | `ui/` | Interfaz alternativa ligera en Streamlit que consume la misma API |
 | `docs/` | [Bitácora de uso de IA](docs/bitacora-ia.md) |
@@ -103,6 +104,19 @@ El `409` explica la contradicción, no solo la nombra:
 
 **Decisión de diseño:** F1 permite registrar ciclos largos (solo rechaza `A → A`), porque detectarlos y alertar es responsabilidad de esta feature; si F1 los rechazara, el caso cíclico no podría existir en los datos.
 
+## Tablero de abastecimiento (Feature 4)
+
+**Pregunta de negocio:** ¿qué falla, qué se afecta y cómo debería organizarse la producción, sin saltar entre pantallas?
+
+La interfaz abre en `/tablero` (vista de *Gerencia de operaciones*), organizada como el criterio de éxito del cliente:
+1. **Cargar una dependencia** (mismo formulario y validaciones de Compras).
+2. **Simular una indisponibilidad**: elegir el elemento, hacer clic en un nodo del mapa o pulsar *Simular falla* en el ranking de puntos críticos. El mapa resalta el punto de falla y lo afectado por nivel, y atenúa el resto.
+3. **Organizar la producción**: el orden por etapas se recalcula solo cada vez que cambia el catálogo; si hay un ciclo, el tablero muestra la alerta con el camino exacto y lo resalta en el mapa.
+
+Los datos salen de `GET /dashboard/summary` (ver [backend/README.md](backend/README.md)), que construye el grafo **una vez** y obtiene de él los totales, los aislados, el estado del orden y los **puntos críticos**: proveedores e insumos ordenados por cuántos productos se detienen si fallan, con el mismo BFS inverso de F2. La interfaz no calcula nada del grafo: antes la cabecera contaba los elementos aislados en el navegador recorriendo todas las aristas por cada nodo (O(N·E)); ahora usa el dato del backend.
+
+**Decisión de diseño:** en el tablero un ciclo es un **estado** (`200`, `status: "cycle"`), no un error, porque el resumen debe seguir mostrando totales y riesgos justamente cuando el catálogo se contradice. `GET /production-order` mantiene su `409`: ahí pedir un orden que no existe sí es un error.
+
 ## Pruebas de aceptación
 
 1. Levante la API sobre una base vacía:
@@ -112,7 +126,7 @@ El `409` explica la contradicción, no solo la nombra:
    set DATABASE_URL=sqlite:///./aceptacion.db
    uvicorn abastecepyme.presentation.main:app --app-dir src --port 8000
    ```
-2. En otra terminal, ejecute el script de la Feature 1, 2 o 3 (borrando `aceptacion.db` y reiniciando la API entre uno y otro):
+2. En otra terminal, ejecute el script de la Feature 1, 2, 3 o 4 (borrando `aceptacion.db` y reiniciando la API entre uno y otro):
    ```bash
    python backend/scripts/aceptacion_f1.py
    ```
@@ -121,6 +135,9 @@ El `409` explica la contradicción, no solo la nombra:
    ```
    ```bash
    python backend/scripts/aceptacion_f3.py
+   ```
+   ```bash
+   python backend/scripts/aceptacion_f4.py
    ```
    - `aceptacion_f1.py` (25 escenarios): catálogo vacío, escenario normal, nodo inexistente, relación no registrada, relación repetida, autodependencia, identificador repetido, datos inválidos, combinación de tipos inválida y ciclo.
    - `aceptacion_f2.py` (16 escenarios): catálogo vacío, impacto por falla de proveedor e insumo por niveles con ruta y frase de negocio, relación inexistente entre cadenas separadas, consulta de requisitos de un producto (`mode=requirements`), elemento aislado (`isolated`), elemento sin alcance (`no_reach`), elemento inexistente (`404`), datos inválidos (`422`) y terminación sin repetidos en presencia de ciclos.
