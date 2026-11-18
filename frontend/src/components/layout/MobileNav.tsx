@@ -15,7 +15,7 @@ export function MobileNav() {
         <Boxes className="size-5" aria-hidden />
         <span className="text-sm font-semibold">AbastecePyme</span>
       </div>
-      <nav className="mt-3 flex gap-2" aria-label="Navegación principal">
+      <nav className="mt-3 flex gap-2 overflow-x-auto [scrollbar-width:none]" aria-label="Navegación principal">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = pathname.startsWith(href);
           return (
@@ -24,7 +24,7 @@ export function MobileNav() {
               href={href}
               aria-current={active ? "page" : undefined}
               className={clsx(
-                "flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium",
+                "flex shrink-0 items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium",
                 active ? "bg-white text-ink-950" : "bg-white/10 text-ink-200",
               )}
             >

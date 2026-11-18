@@ -6,13 +6,22 @@ export class ApiError extends Error {
   status: number;
   code: string;
   details: NonNullable<ApiErrorBody["details"]>;
+  /** Cuerpo completo de la respuesta de error, para errores que traen más datos (p. ej. el ciclo). */
+  body: unknown;
 
-  constructor(status: number, code: string, message: string, details: ApiErrorBody["details"] = []) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    details: ApiErrorBody["details"] = [],
+    body: unknown = null,
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
     this.details = details ?? [];
+    this.body = body;
   }
 }
 
@@ -40,6 +49,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
       data?.error_code ?? "ERR_UNKNOWN",
       data?.message ?? `Error ${res.status}`,
       data?.details,
+      data,
     );
   }
   return data as T;

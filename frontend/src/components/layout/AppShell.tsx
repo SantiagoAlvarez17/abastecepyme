@@ -4,21 +4,15 @@ import { usePathname } from "next/navigation";
 import { RefreshCw, ShieldCheck } from "lucide-react";
 import { useCatalogContext } from "@/context/CatalogContext";
 import { NAV_ITEMS } from "@/lib/navigation";
+import { ProductionStatusPill } from "@/components/dashboard/ProductionStatusPill";
 import { MobileNav } from "./MobileNav";
 import { Sidebar } from "./Sidebar";
 
 function TopHeader() {
   const pathname = usePathname();
-  const { graph, loading, refresh } = useCatalogContext();
+  const { summary, loading, refresh } = useCatalogContext();
   const activeNav = NAV_ITEMS.find((item) => pathname.startsWith(item.href)) ?? NAV_ITEMS[0];
-
-  const isolatedCount = graph
-    ? graph.nodes.filter((n) => {
-        const hasOut = (graph.adjacency[n.id]?.length ?? 0) > 0;
-        const hasIn = graph.edges.some((e) => e.required_element_id === n.id);
-        return !hasOut && !hasIn;
-      }).length
-    : 0;
+  const isolatedCount = summary?.isolated.length ?? 0;
 
   return (
     <header className="sticky top-0 z-20 hidden border-b border-ink-100 bg-white/90 px-8 py-3.5 backdrop-blur md:flex md:items-center md:justify-between">
@@ -33,14 +27,14 @@ function TopHeader() {
       </div>
 
       <div className="flex items-center gap-4">
-        {graph && (
+        {summary && (
           <div className="flex items-center gap-3 text-xs text-ink-500">
             <span>
-              <strong className="font-semibold text-ink-900">{graph.nodes.length}</strong> elementos
+              <strong className="font-semibold text-ink-900">{summary.total_elements}</strong> elementos
             </span>
             <span className="text-ink-200">•</span>
             <span>
-              <strong className="font-semibold text-ink-900">{graph.edges.length}</strong> dependencias
+              <strong className="font-semibold text-ink-900">{summary.total_dependencies}</strong> dependencias
             </span>
             {isolatedCount > 0 && (
               <>
@@ -50,6 +44,7 @@ function TopHeader() {
                 </span>
               </>
             )}
+            <ProductionStatusPill status={summary.production.status} />
           </div>
         )}
         <button

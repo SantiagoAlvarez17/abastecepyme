@@ -7,12 +7,15 @@ import { DependencyGraph } from "@/components/graph/DependencyGraph";
 import { ImpactLevels } from "@/components/impact/ImpactLevels";
 import { ImpactQueryPanel } from "@/components/impact/ImpactQueryPanel";
 import { ImpactSummary } from "@/components/impact/ImpactSummary";
+import { ProductionOrderPanel } from "@/components/production/ProductionOrderPanel";
 import { Card } from "@/components/ui/Card";
 import { CatalogGate } from "@/components/ui/CatalogGate";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useImpact } from "@/hooks/useImpact";
-import type { ImpactHighlight } from "@/lib/graph-view";
+import { useProductionOrder } from "@/hooks/useProductionOrder";
+import { impactHighlightOf } from "@/lib/graph-view";
+import { cycleHighlightOf, parseCycleReport } from "@/lib/production-order";
 import type { ImpactMode } from "@/lib/types";
 
 function ProduccionContent() {
@@ -24,6 +27,10 @@ function ProduccionContent() {
   const [originId, setOriginId] = useState(initialElement);
   const [mode, setMode] = useState<ImpactMode>(initialMode);
   const { result, loading, error, run, clear } = useImpact();
+  const production = useProductionOrder();
+  // Si el orden no existe por un ciclo, el mapa resalta los elementos y dependencias que lo forman.
+  const cycleReport = useMemo(() => parseCycleReport(production.error), [production.error]);
+  const cycleHighlight = useMemo(() => (cycleReport ? cycleHighlightOf(cycleReport) : undefined), [cycleReport]);
 
   useEffect(() => {
     if (!initialElement) return;
@@ -40,21 +47,7 @@ function ProduccionContent() {
     else clear();
   }
 
-  const highlight = useMemo<ImpactHighlight | undefined>(() => {
-    if (!result) return undefined;
-    const levelById: Record<string, number> = {};
-    for (const lv of result.levels) {
-      for (const el of lv.elements) {
-        levelById[el.id] = el.level;
-      }
-    }
-    return {
-      mode: result.mode,
-      originId: result.origin.id,
-      affectedIds: result.levels.flatMap((l) => l.elements.map((e) => e.id)),
-      levelById,
-    };
-  }, [result]);
+  const highlight = useMemo(() => (result ? impactHighlightOf(result) : undefined), [result]);
 
   const showLevels = result !== null && result.levels.length > 0;
 
@@ -111,6 +104,7 @@ function ProduccionContent() {
                     <DependencyGraph
                       graph={graph}
                       highlight={highlight}
+                      cycle={cycleHighlight}
                       onSelectElement={(id) => handleQuery(id, mode)}
                     />
                   </Card>
@@ -121,6 +115,8 @@ function ProduccionContent() {
                   </div>
                 )}
               </div>
+
+              <ProductionOrderPanel production={production} cycleReport={cycleReport} />
             </div>
           )
         }

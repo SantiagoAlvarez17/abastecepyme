@@ -59,3 +59,72 @@ export interface ImpactResponseDTO {
   affected_by_type: Partial<Record<ElementType, number>>;
   levels: ImpactLevelDTO[];
 }
+
+
+// ---------- Feature 3: orden de preparación ----------
+export interface ProductionStepDTO {
+  position: number; // lugar en el orden de trabajo (1, 2, 3, ...)
+  stage: number;    // los pasos de una misma etapa pueden prepararse en paralelo
+  id: string;
+  name: string;
+  element_type: ElementType;
+  requires: string[]; // nombres de sus requisitos directos (todos aparecen antes)
+}
+
+export interface ProductionOrderDTO {
+  total_elements: number;
+  stage_count: number;
+  summary: string;
+  steps: ProductionStepDTO[];
+}
+
+/** Un elemento mencionado en el reporte de un ciclo. */
+export interface CycleElementDTO {
+  id: string;
+  name: string;
+  element_type: ElementType;
+}
+
+/**
+ * Un ciclo: camino cerrado en el sentido de las dependencias. El primer elemento se repite al final:
+ * [Pan, Masa madre, Pan] = "para producir Pan necesito Masa madre y para producir Masa madre necesito Pan".
+ */
+export interface CycleDTO {
+  elements: CycleElementDTO[];
+  text: string; // "Pan → Masa madre → Pan"
+}
+
+/** Cuerpo del 409 ERR_CYCLE_DETECTED de GET /production-order. */
+export interface CycleErrorBody {
+  error_code: string;
+  message: string;
+  cycles: CycleDTO[];
+  blocked_by_cycle: CycleElementDTO[]; // no forman parte del ciclo, pero dependen de él
+}
+
+
+// ---------- Feature 4: supply dashboard ----------
+export type ElementRefDTO = CycleElementDTO;
+
+export interface CriticalPointDTO extends ElementRefDTO {
+  affected_products: number; // products that stop if this element fails
+  affected_total: number;    // every element reached by the failure
+  products: string[];
+}
+
+export type ProductionStatus = "empty" | "valid" | "cycle";
+
+export interface DashboardSummaryDTO {
+  total_elements: number;
+  total_dependencies: number;
+  by_type: Record<ElementType, number>;
+  isolated: ElementRefDTO[];
+  production: {
+    status: ProductionStatus;
+    message: string;
+    stage_count: number;
+    blocked_count: number;
+    cycles: CycleDTO[];
+  };
+  critical_points: CriticalPointDTO[];
+}
