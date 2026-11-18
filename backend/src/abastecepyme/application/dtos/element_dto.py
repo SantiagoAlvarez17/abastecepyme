@@ -15,3 +15,11 @@ class ElementResponseDTO(BaseModel):
     name: str
     element_type: ElementType
     is_active: bool
+
+
+class ElementRefDTO(BaseModel):
+    """Lightweight reference to an element inside a report (cycle, ranking, isolated list)."""
+
+    id: UUID
+    name: str
+    element_type: ElementType

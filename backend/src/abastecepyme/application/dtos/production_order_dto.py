@@ -3,6 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from abastecepyme.application.dtos.element_dto import ElementRefDTO
 from abastecepyme.domain.enums.element_type import ElementType
 
 
@@ -23,10 +24,8 @@ class ProductionOrderResponseDTO(BaseModel):
 
 
 # ---------- Respuesta de error cuando hay un ciclo (409 ERR_CYCLE_DETECTED) ----------
-class CycleElementDTO(BaseModel):
-    id: UUID
-    name: str
-    element_type: ElementType
+class CycleElementDTO(ElementRefDTO):
+    """An element mentioned in a cycle report."""
 
 
 class CycleDTO(BaseModel):

@@ -3,6 +3,7 @@ from abastecepyme.application.dtos.production_order_dto import (
     ProductionStepDTO,
 )
 from abastecepyme.core.exceptions import CyclicDependenciesException
+from abastecepyme.application.use_cases.graph_descriptions import describe_cycle, describe_element
 from abastecepyme.domain.graph.dependency_graph import DependencyGraph
 from abastecepyme.domain.interfaces.dependency_repository import DependencyRepository
 from abastecepyme.domain.interfaces.element_repository import ElementRepository
@@ -36,8 +37,8 @@ class GetProductionOrderUseCase:
         ordering = graph.preparation_order()
         if not ordering.is_valid:
             raise CyclicDependenciesException(
-                cycles=[self._describe_cycle(graph, cycle) for cycle in ordering.cycles],
-                blocked_by_cycle=[self._describe_element(graph, i) for i in ordering.blocked_by_cycle],
+                cycles=[describe_cycle(graph, cycle) for cycle in ordering.cycles],
+                blocked_by_cycle=[describe_element(graph, i) for i in ordering.blocked_by_cycle],
             )
 
         steps: list[ProductionStepDTO] = []
@@ -65,16 +66,6 @@ class GetProductionOrderUseCase:
             summary=self._summary(len(steps), len(ordering.stages)),
             steps=steps,
         )
-
-    @staticmethod
-    def _describe_element(graph: DependencyGraph, node_id) -> dict:
-        node = graph.get_node(node_id)
-        return {"id": str(node.id), "name": node.name, "element_type": node.element_type.value}
-
-    @classmethod
-    def _describe_cycle(cls, graph: DependencyGraph, cycle: list) -> dict:
-        elements = [cls._describe_element(graph, node_id) for node_id in cycle]
-        return {"elements": elements, "text": " → ".join(e["name"] for e in elements)}
 
     @staticmethod
     def _summary(elements: int, stages: int) -> str:

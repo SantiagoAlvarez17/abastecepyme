@@ -10,6 +10,7 @@ from abastecepyme.presentation.routes.impact_routes import router as impact_rout
 from abastecepyme.infrastructure.database.models.base import Base
 from abastecepyme.infrastructure.database.session import engine
 from abastecepyme.presentation.routes.production_routes import router as production_router
+from abastecepyme.presentation.routes.dashboard_routes import router as dashboard_router
 
 # En un entorno productivo real usaríamos Alembic para las migraciones
 Base.metadata.create_all(bind=engine)
@@ -67,5 +68,6 @@ app.include_router(dependency_router)
 app.include_router(graph_router)
 app.include_router(impact_router)
 app.include_router(production_router)
+app.include_router(dashboard_router)
 
 

@@ -135,6 +135,10 @@ class DependencyGraph:
         """Nodos que requieren directamente a `node_id`."""
         return list(self._required_by.get(node_id, []))
 
+    def is_isolated(self, node_id: UUID) -> bool:
+        """True when the node neither requires anything nor is required by anyone."""
+        return not self._requires.get(node_id) and not self._required_by.get(node_id)
+
     def reach(self, source: UUID, *, reverse: bool = False) -> List[Visit]:
         """
         Recorrido en anchura (BFS) propio desde `source`.
@@ -213,7 +217,7 @@ class DependencyGraph:
 
         stages: List[List[UUID]] = []
         while ready:
-            ready.sort(key=self._display_key)
+            ready.sort(key=self.display_key)
             stages.append(ready)
 
             next_ready: List[UUID] = []
@@ -224,7 +228,7 @@ class DependencyGraph:
                         next_ready.append(dependent_id)
             ready = next_ready
 
-        blocked = sorted((n for n, count in pending.items() if count > 0), key=self._display_key)
+        blocked = sorted((n for n, count in pending.items() if count > 0), key=self.display_key)
         cycles, in_cycle = self._find_cycles(set(blocked)) if blocked else ([], [])
         if blocked and not cycles:
             raise RuntimeError("No se pudo reconstruir el ciclo que bloquea el orden.")
@@ -249,16 +253,16 @@ class DependencyGraph:
             if len(group) == 1 and group[0] not in self._requires[group[0]]:
                 continue
             members = set(group)
-            start = min(group, key=self._display_key)
+            start = min(group, key=self.display_key)
             cycles.append(self._shortest_cycle_through(start, members))
             in_cycle.extend(group)
-        cycles.sort(key=lambda cycle: self._display_key(cycle[0]))
-        in_cycle.sort(key=self._display_key)
+        cycles.sort(key=lambda cycle: self.display_key(cycle[0]))
+        in_cycle.sort(key=self.display_key)
         return cycles, in_cycle
 
     def _neighbours_within(self, node_id: UUID, allowed: Set[UUID]) -> List[UUID]:
         """Requisitos directos de `node_id` que están en `allowed`, en orden estable."""
-        return sorted((n for n in self._requires[node_id] if n in allowed), key=self._display_key)
+        return sorted((n for n in self._requires[node_id] if n in allowed), key=self.display_key)
 
     def _strongly_connected_groups(self, nodes: Set[UUID]) -> List[List[UUID]]:
         """Algoritmo de Tarjan, iterativo (sin recursión), sobre el subgrafo formado por `nodes`."""
@@ -269,7 +273,7 @@ class DependencyGraph:
         groups: List[List[UUID]] = []
         counter = 0
 
-        for root in sorted(nodes, key=self._display_key):
+        for root in sorted(nodes, key=self.display_key):
             if root in number:
                 continue
             number[root] = low[root] = counter
@@ -338,8 +342,11 @@ class DependencyGraph:
         middle.reverse()
         return [start, *middle, start]
 
-    def _display_key(self, node_id: UUID) -> Tuple[int, str]:
-        """Clave de orden estable: primero por tipo (proveedor, insumo, producto) y luego por nombre."""
+    def display_key(self, node_id: UUID) -> Tuple[int, str]:
+        """
+        Stable sort key: element type first (proveedor, insumo, producto), then name.
+        Public so that use cases can present results in the same order as the graph does.
+        """
         element = self._nodes[node_id]
         return list(ElementType).index(element.element_type), element.name.casefold()
 

@@ -103,7 +103,7 @@ class AnalyzeImpactUseCase:
     ) -> ImpactOutcome:
         if visits:
             return ImpactOutcome.CHAIN
-        if not graph.requirements_of(element_id) and not graph.dependents_of(element_id):
+        if graph.is_isolated(element_id):
             return ImpactOutcome.ISOLATED  # Caso 2: sin ninguna dependencia registrada
         return ImpactOutcome.NO_REACH      # tiene relaciones, pero no en el sentido consultado
 
